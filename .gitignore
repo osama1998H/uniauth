@@ -176,7 +176,6 @@ venv/
 .pre-commit-config.yaml
 
 # GitHub Actions workflows
-.github/
 
 # System Files
 Thumbs.db
