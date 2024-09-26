@@ -13,7 +13,9 @@ class CRUDUser:
     def create(self, db: Session, *, obj_in: UserCreate) -> User:
         db_obj = User(
             email=obj_in.email,
-            hashed_password=get_password_hash(obj_in.password)
+            hashed_password=get_password_hash(obj_in.password),
+            is_active=True,  # Default to active; this can be customized
+            is_superuser=False  # Default to non-superuser
         )
         db.add(db_obj)
         db.commit()

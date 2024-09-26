@@ -6,7 +6,8 @@ class UserBase(BaseModel):
     email: EmailStr = Field(None, description="The user's email address")
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(None, description="The user's password")
+    full_name: str = Field(None, description="The user's full name")
 
 class UserUpdate(UserBase):
     full_name: str = Field(None, description="The user's full name")
