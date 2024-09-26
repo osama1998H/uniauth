@@ -1,9 +1,9 @@
 # app/crud/crud_user.py
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Any, Dict, Optional, Union
 
 from app.models.user import User
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 
 class CRUDUser:
@@ -15,6 +15,20 @@ class CRUDUser:
             email=obj_in.email,
             hashed_password=get_password_hash(obj_in.password)
         )
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+    
+    def update(
+        self, db: Session, *, db_obj: User, obj_in: Union[UserUpdate, Dict[str, Any]]
+    ) -> User:
+        if isinstance(obj_in, dict):
+            update_data = obj_in
+        else:
+            update_data = obj_in.model_dump(exclude_unset=True)
+        for field in update_data:
+            setattr(db_obj, field, update_data[field])
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
