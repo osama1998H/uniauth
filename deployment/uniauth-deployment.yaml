@@ -1,0 +1,86 @@
+# uniauth-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uniauth-web
+  namespace: uniauth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: uniauth-web
+  template:
+    metadata:
+      labels:
+        app: uniauth-web
+    spec:
+      containers:
+        - name: uniauth-web
+          image: your-dockerhub-username/uniauth-web:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: POSTGRES_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: uniauth-config
+                  key: POSTGRES_SERVER
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: uniauth-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: uniauth-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: uniauth-config
+                  key: POSTGRES_DB
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: uniauth-secret
+                  key: SECRET_KEY
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              valueFrom:
+                configMapKeyRef:
+                  name: uniauth-config
+                  key: ACCESS_TOKEN_EXPIRE_MINUTES
+            - name: REDIS_HOST
+              valueFrom:
+                  configMapKeyRef:
+                    name: uniauth-config
+                    key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: uniauth-config
+                  key: REDIS_PORT
+            - name: REDIS_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: uniauth-config
+                  key: REDIS_DB
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

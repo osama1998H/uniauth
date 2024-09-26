@@ -1,0 +1,13 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: uniauth-config
+  namespace: uniauth
+data:
+  POSTGRES_DB: uniauth_db
+  POSTGRES_SERVER: uniauth-db
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
