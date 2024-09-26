@@ -1,0 +1,71 @@
+namespace: uniauth
+createNamespace: false  # Set to true if you want Helm to manage the namespace
+
+fullnameOverride: ""  # Use this to override the full name
+
+replicaCount: 2
+
+image:
+  repository: your-dockerhub-username/uniauth-web
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  host: your-domain.com
+  path: /
+  pathType: Prefix
+
+env:
+  POSTGRES_DB: uniauth_db
+  POSTGRES_SERVER: ""  # Will be set in templates using helper functions
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  REDIS_HOST: ""       # Will be set in templates using helper functions
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+resources:
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+
+postgres:
+  enabled: true
+  image: postgres:13
+  replicaCount: 1
+  storage:
+    size: 5Gi
+  resources:
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+secrets:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  SECRET_KEY: ""
+

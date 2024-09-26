@@ -1,0 +1,14 @@
+# uniauth-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: uniauth-web
+  namespace: uniauth
+spec:
+  selector:
+    app: uniauth-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
