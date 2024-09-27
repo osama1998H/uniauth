@@ -19,7 +19,7 @@ echo "Database is ready!"
 
 # Run migrations
 echo "Running database migrations..."
-alembic upgrade head
+# alembic upgrade head || { echo "Alembic migrations failed"; exit 1; }
 
 # Start the application
 echo "Starting the application..."

@@ -1,7 +1,6 @@
 # app/crud/crud_user.py
 from sqlalchemy.orm import Session
 from typing import Any, Dict, Optional, Union
-
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
@@ -14,8 +13,8 @@ class CRUDUser:
         db_obj = User(
             email=obj_in.email,
             hashed_password=get_password_hash(obj_in.password),
-            is_active=True,  # Default to active; this can be customized
-            is_superuser=False  # Default to non-superuser
+            is_active=True,  # Customize as needed
+            is_superuser=False  # Customize as needed
         )
         db.add(db_obj)
         db.commit()
@@ -25,16 +24,20 @@ class CRUDUser:
     def update(
         self, db: Session, *, db_obj: User, obj_in: Union[UserUpdate, Dict[str, Any]]
     ) -> User:
-        if isinstance(obj_in, dict):
-            update_data = obj_in
-        else:
-            update_data = obj_in.model_dump(exclude_unset=True)
+        update_data = obj_in if isinstance(obj_in, dict) else obj_in.model_dump(exclude_unset=True)
         for field in update_data:
             setattr(db_obj, field, update_data[field])
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
         return db_obj
+
+    def update_password(self, db: Session, *, user: User, new_password: str) -> User:
+        user.hashed_password = get_password_hash(new_password)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
 
     def authenticate(self, db: Session, *, email: str, password: str) -> Optional[User]:
         user = self.get_by_email(db, email=email)
@@ -48,4 +51,3 @@ class CRUDUser:
         return user.is_active
 
 crud_user = CRUDUser()
-

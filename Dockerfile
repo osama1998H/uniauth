@@ -5,6 +5,7 @@ FROM python:3.10-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Set the working directory in the container
 WORKDIR /app
