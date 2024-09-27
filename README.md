@@ -89,7 +89,7 @@ UniAuth is a secure, scalable, and easy-to-integrate authentication and authoriz
 ### Deployment and Infrastructure
 
 - **Containerization:** Docker
-- **Orchestration:** Kubernetes (manifests included in `deployment/` directory)
+- **Orchestration:** Kubernetes (manifests included in `uniauth/` directory)
 - **CI/CD Pipeline:** To be implemented
 - **Monitoring and Logging:** To be integrated
 
@@ -296,7 +296,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Roadmap
 
 - **Authentication Methods**
-  - [ ] **OAuth2:** Implement standard OAuth2 flows.
+  - [x] **OAuth2:** Implement standard OAuth2 flows.
   - [ ] **Multi-Factor Authentication (MFA):** Add support for MFA using SMS, email, or authenticator apps.
   - [ ] **Single Sign-On (SSO):** Enable SSO capabilities.
 
@@ -308,7 +308,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 - **Authorization and Access Control**
   - [ ] **Role-Based Access Control (RBAC):** Implement roles and permissions.
-  - [ ] **API Key Management:** Allow service-to-service communication using API keys.
+  - [x] **API Key Management:** Allow service-to-service communication using API keys.
   - [ ] **Fine-Grained Permissions:** Enable control over specific resources and actions.
 
 - **Administration Dashboard**
@@ -333,7 +333,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
   - [ ] **Centralized Logging:** Set up ELK Stack.
 
 - **CI/CD Pipeline**
-  - [ ] **Continuous Integration:** Automate testing.
+  - [x] **Continuous Integration:** Automate testing.
   - [ ] **Continuous Deployment:** Automate deployment processes.
 
 ---
