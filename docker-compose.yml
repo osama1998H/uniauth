@@ -10,7 +10,6 @@ services:
       - db
       - redis
     environment:
-      - PYTHONPATH=/app  # Ensure PYTHONPATH is set for the app module imports
       - POSTGRES_SERVER=db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
