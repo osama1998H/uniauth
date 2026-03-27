@@ -218,7 +218,7 @@ func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 
 // RequestPasswordReset godoc
 // @Summary     Request a password reset email
-// @Description Sends a password reset link to the user's email. Always returns 200 to prevent email enumeration.
+// @Description Attempts password reset email delivery via configured SMTP. Always returns 200 to prevent email enumeration, even when delivery is unavailable.
 // @Tags        Auth
 // @Accept      json
 // @Produce     json

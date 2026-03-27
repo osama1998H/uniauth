@@ -30,7 +30,7 @@ func NewRouter(
 	tokenMaker := token.NewMaker(cfg.Auth.JWTSecret, cfg.Auth.AccessTokenDuration, cfg.Auth.RefreshTokenDuration)
 	auditSvc := service.NewAuditService(store, logger)
 	webhookSvc := service.NewWebhookService(store, logger)
-	emailSvc := service.NewEmailService(cfg.Email)
+	emailSvc := service.NewEmailService(cfg.Email, logger, cfg.IsDevelopment())
 	authSvc := service.NewAuthService(store, tokenMaker, redisCache, auditSvc, webhookSvc, emailSvc, cfg.Auth)
 	userSvc := service.NewUserService(store, auditSvc)
 	orgSvc := service.NewOrgService(store)

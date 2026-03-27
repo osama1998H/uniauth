@@ -55,3 +55,8 @@ func (s *Store) MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) er
 	_, err := s.pool.Exec(ctx, `UPDATE password_reset_tokens SET used_at = now() WHERE id = $1`, id)
 	return err
 }
+
+func (s *Store) DeletePasswordResetToken(ctx context.Context, id uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM password_reset_tokens WHERE id = $1`, id)
+	return err
+}

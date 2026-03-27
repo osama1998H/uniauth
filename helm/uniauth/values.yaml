@@ -21,7 +21,8 @@ config:
   dbMaxIdleConns: "5"
   # Used in password reset email links — set to your public URL
   appBaseURL: "https://example.com"
-  # Optional SMTP configuration (leave empty to print emails to stdout)
+  # SMTP configuration for password reset delivery. Leave empty only if you
+  # intentionally want reset-email delivery disabled in this environment.
   smtpHost: ""
   smtpPort: "587"
   smtpFrom: ""

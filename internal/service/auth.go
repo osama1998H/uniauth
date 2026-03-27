@@ -256,11 +256,22 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, orgSlug, email s
 	tokenHash := hashString(rawToken)
 	expiresAt := time.Now().Add(s.authCfg.ResetTokenDuration)
 
-	if _, err := s.store.CreatePasswordResetToken(ctx, user.ID, tokenHash, expiresAt); err != nil {
+	resetRecord, err := s.store.CreatePasswordResetToken(ctx, user.ID, tokenHash, expiresAt)
+	if err != nil {
 		return fmt.Errorf("create reset token: %w", err)
 	}
 
-	return s.emailSvc.SendPasswordReset(email, rawToken)
+	if err := s.emailSvc.SendPasswordReset(email, rawToken); err != nil {
+		if cleanupErr := s.store.DeletePasswordResetToken(ctx, resetRecord.ID); cleanupErr != nil {
+			if s.emailSvc != nil && s.emailSvc.logger != nil {
+				s.emailSvc.logger.Error("password reset token cleanup failed after email delivery failure", "error", cleanupErr)
+			}
+			return fmt.Errorf("cleanup reset token after email failure: %w", cleanupErr)
+		}
+		return nil
+	}
+
+	return nil
 }
 
 // ConfirmPasswordReset validates the token and updates the password.
