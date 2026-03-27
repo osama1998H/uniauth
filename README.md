@@ -1,352 +1,233 @@
 # UniAuth
 
-UniAuth is a secure, scalable, and easy-to-integrate authentication and authorization microservice designed to serve multiple applications. It allows users to use the same credentials across different platforms, providing a seamless authentication experience. UniAuth offers features like multi-factor authentication (MFA), OAuth2, JWT-based authentication, Single Sign-On (SSO), and role-based access control (RBAC).
+**UniAuth** is a self-hosted, production-grade authentication and authorization service built in Go. Use it as the auth backend for any of your applications — a lightweight alternative to Keycloak or Auth0.
 
-## Table of Contents
-
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [Usage](#usage)
-- [API Documentation](#api-documentation)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [License](#license)
-- [Roadmap](#roadmap)
-
----
+> **Status:** Active development · v0.1.0 coming soon
 
 ## Features
 
-### Completed Features
+- **JWT authentication** — access tokens (15m) + refresh tokens (7d) with rotation
+- **Multi-tenancy** — organizations with isolated users, roles, and API keys
+- **Role-Based Access Control (RBAC)** — fine-grained permissions (`users:read`, `roles:write`, etc.)
+- **API keys** — server-to-server authentication with scopes
+- **Audit logs** — every auth event recorded with actor, IP, and metadata
+- **Webhooks** — receive HTTP callbacks on auth events (HMAC-signed)
+- **Password reset** — secure token flow via SMTP email
+- **Rate limiting** — per-IP via Redis sliding window
+- **Health endpoints** — `/health` + `/ready` for Kubernetes probes
+- **Single binary** — ships as a ~10MB Docker image, no runtime deps beyond Postgres and Redis
 
-- **User Management**
-  - Registration and login functionality
-  - Password reset and account recovery
-  - Profile management
+## Quick Start
 
-- **Authentication Methods**
-  - **JWT (JSON Web Tokens):** Stateless authentication mechanism
+```bash
+# 1. Clone
+git clone https://github.com/osama1998h/uniauth.git && cd uniauth
 
-- **Security Features**
-  - Secure password hashing using bcrypt
-  - Protection against common vulnerabilities (e.g., SQL injection, XSS)
-  - Rate limiting to prevent brute-force attacks
+# 2. Configure
+cp .env.example .env
+# Edit .env — at minimum set JWT_SECRET
 
-- **Developer-Friendly Features**
-  - Well-documented RESTful APIs using OpenAPI/Swagger
-  - Structured project ready for further development and integration
-
-### Upcoming Features (Roadmap)
-
-- **Authentication Methods**
-  - **OAuth2:** Standard protocol for authorization
-  - **Multi-Factor Authentication (MFA):** Adding an extra layer of security using SMS, email, or authenticator apps
-  - **Single Sign-On (SSO):** Access multiple applications with one set of credentials
-
-- **Social Media Login Integrations**
-  - Support for Google, Facebook, Twitter, LinkedIn, etc.
-
-- **Authorization and Access Control**
-  - **Role-Based Access Control (RBAC):** Assign permissions to users based on roles
-  - **API Key Management:** For service-to-service communication
-  - **Fine-Grained Permissions:** Control access at a granular level
-
-- **Administration Dashboard**
-  - User and role management
-  - Analytics and reporting
-  - System configuration settings
-
-- **Security Enhancements**
-  - Audit logging
-  - Compliance with regulations like GDPR and HIPAA
-
-- **Developer-Friendly Features**
-  - SDKs for popular programming languages
-  - Webhooks and event notifications
-
----
-
-## Technology Stack
-
-### Backend
-
-- **Programming Language:** Python 3.10
-- **Frameworks:** FastAPI
-- **Authentication Libraries:**
-  - **JWT:** `PyJWT`
-- **Database:**
-  - **Primary:** PostgreSQL
-  - **Secondary:** Redis (for caching and rate limiting)
-- **Caching and Rate Limiting:**
-  - Redis
-- **Asynchronous Programming:**
-  - `asyncio`
-
-### Deployment and Infrastructure
-
-- **Containerization:** Docker
-- **Orchestration:** Kubernetes (manifests included in `uniauth/` directory)
-- **CI/CD Pipeline:** To be implemented
-- **Monitoring and Logging:** To be integrated
-
----
-
-## Project Structure
-
-```
-UniAuth/
-├── README.md
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── deps.py
-│   │   └── v1/
-│   │       ├── __init__.py
-│   │       ├── api.py
-│   │       └── endpoints/
-│   │           ├── __init__.py
-│   │           ├── users.py
-│   │           └── login.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py
-│   │   ├── security.py
-│   │   └── redis.py
-│   ├── crud/
-│   │   ├── __init__.py
-│   │   └── crud_user.py
-│   ├── db/
-│   │   ├── __init__.py
-│   │   ├── base.py
-│   │   ├── base_class.py
-│   │   └── session.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── user.py
-│   ├── schemas/
-│   │   ├── __init__.py
-│   │   ├── user.py
-│   │   └── token.py
-│   └── middleware/
-│       ├── __init__.py
-│       └── rate_limit.py
-├── alembic/
-│   ├── env.py
-│   ├── script.py.mako
-│   └── versions/
-├── deployment/
-│   ├── configmap.yaml
-│   ├── secret.yaml
-│   ├── namespace.yaml
-│   ├── postgres-deployment.yaml
-│   ├── postgres-service.yaml
-│   ├── redis-deployment.yaml
-│   ├── redis-service.yaml
-│   ├── uniauth-deployment.yaml
-│   └── uniauth-service.yaml
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-├── entrypoint.sh
-└── .gitignore
+# 3. Start
+docker compose up
 ```
 
----
+Server is running at `http://localhost:8080`. MailHog UI at `http://localhost:8025`.
 
-## Getting Started
+## API
 
-### Prerequisites
+### Authentication
 
-- **Docker and Docker Compose:** Ensure you have Docker and Docker Compose installed.
-- **Python 3.10:** If you plan to run the application outside Docker.
+```bash
+# Register a new organization + admin user
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"org_name":"Acme Corp","email":"admin@acme.com","password":"securepass123"}'
 
-### Installation
+# Login
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"org_slug":"acme-corp","email":"admin@acme.com","password":"securepass123"}'
+# => { "access_token": "...", "refresh_token": "..." }
 
-1. **Clone the Repository**
+# Refresh tokens
+curl -X POST http://localhost:8080/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token":"<your-refresh-token>"}'
 
-   ```bash
-   git clone https://github.com/yourusername/UniAuth.git
-   cd UniAuth
-   ```
+# Logout
+curl -X POST http://localhost:8080/api/v1/auth/logout \
+  -H "Authorization: Bearer <access-token>" \
+  -d '{"refresh_token":"<refresh-token>"}'
+```
 
-2. **Set Up Environment Variables**
+### Users
 
-   Create a `.env` file in the root directory and add the following variables:
+```bash
+# Get own profile
+curl http://localhost:8080/api/v1/users/me \
+  -H "Authorization: Bearer <access-token>"
 
-   ```env
-   POSTGRES_SERVER=db
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=postgres
-   POSTGRES_DB=uniauth_db
-   SECRET_KEY=your-secret-key
-   ACCESS_TOKEN_EXPIRE_MINUTES=30
-   REDIS_HOST=redis
-   REDIS_PORT=6379
-   REDIS_DB=0
-   ```
+# Update profile
+curl -X PUT http://localhost:8080/api/v1/users/me \
+  -H "Authorization: Bearer <access-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"full_name":"Jane Doe"}'
+```
 
-3. **Build and Run Docker Containers**
+### RBAC
 
-   ```bash
-   docker-compose up --build
-   ```
+```bash
+# Create a role
+curl -X POST http://localhost:8080/api/v1/roles \
+  -H "Authorization: Bearer <access-token>" \
+  -d '{"name":"editor","description":"Can read and write content"}'
 
-   This will start the application on `http://localhost:8000`.
+# Assign permissions to role
+curl -X POST http://localhost:8080/api/v1/roles/<role-id>/permissions \
+  -H "Authorization: Bearer <access-token>" \
+  -d '{"permissions":["users:read","roles:read"]}'
 
----
+# Assign role to user
+curl -X POST http://localhost:8080/api/v1/users/<user-id>/roles \
+  -H "Authorization: Bearer <access-token>" \
+  -d '{"role_id":"<role-id>"}'
+```
 
-## Usage
+### API Keys
 
-- **API Documentation:**
+```bash
+# Create an API key (key shown only once)
+curl -X POST http://localhost:8080/api/v1/api-keys \
+  -H "Authorization: Bearer <access-token>" \
+  -d '{"name":"CI pipeline","scopes":["users:read"]}'
+# => { "key": "uk_abcdef...", ... }
 
-  Access the interactive API documentation at `http://localhost:8000/docs`.
+# Use an API key
+curl http://localhost:8080/api/v1/users/me \
+  -H "X-API-Key: uk_abcdef..."
+```
 
-- **Register a New User:**
+### Webhooks
 
-  Send a `POST` request to `/api/v1/users/` with the user data.
+```bash
+# Register a webhook
+curl -X POST http://localhost:8080/api/v1/webhooks \
+  -H "Authorization: Bearer <access-token>" \
+  -d '{"url":"https://myapp.com/hooks/auth","events":["user.login","user.registered"]}'
+# => { "secret": "whsec_...", ... }
+```
 
-- **Login:**
+Webhook payloads are HMAC-signed with `X-UniAuth-Signature: sha256=<hash>`.
 
-  Send a `POST` request to `/api/v1/login/access-token` with your credentials to receive a JWT token.
+## Configuration
 
-- **Protected Endpoints:**
+All configuration is via environment variables (see `.env.example`):
 
-  Use the JWT token to access protected endpoints by adding it to the `Authorization` header as `Bearer <token>`.
-
----
-
-## API Documentation
-
-The API is documented using Swagger/OpenAPI. You can access the documentation by navigating to:
-
-- **Swagger UI:** `http://localhost:8000/docs`
-- **Redoc:** `http://localhost:8000/redoc`
-
----
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8080` | HTTP listen port |
+| `ENVIRONMENT` | `development` | `development` or `production` |
+| `DATABASE_URL` | — | PostgreSQL connection string (required) |
+| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
+| `JWT_SECRET` | — | HMAC secret for JWTs (required, min 32 chars) |
+| `ACCESS_TOKEN_DURATION` | `15m` | Access token lifetime |
+| `REFRESH_TOKEN_DURATION` | `168h` | Refresh token lifetime (7 days) |
+| `RESET_TOKEN_DURATION` | `1h` | Password reset token lifetime |
+| `RATE_LIMIT_PER_MINUTE` | `60` | Max requests per IP per minute |
+| `CORS_ORIGINS` | `*` | Comma-separated allowed origins |
+| `SMTP_HOST` | — | SMTP server (leave empty to print to stdout) |
+| `SMTP_PORT` | `587` | SMTP port |
+| `SMTP_FROM` | — | From address for emails |
+| `APP_BASE_URL` | `http://localhost:8080` | Base URL for email links |
 
 ## Deployment
 
-### Docker Deployment
+### Docker
 
-- **Build the Docker Image:**
+```bash
+docker run -d \
+  -e DATABASE_URL="postgres://..." \
+  -e REDIS_URL="redis://..." \
+  -e JWT_SECRET="your-secret" \
+  -p 8080:8080 \
+  ghcr.io/osama1998h/uniauth:latest
+```
 
-  ```bash
-  docker build -t uniauth-web .
-  ```
+### Kubernetes (Helm)
 
-- **Run the Docker Container:**
+```bash
+helm install uniauth ./deployments/helm/uniauth \
+  --set database.url="postgres://..." \
+  --set redis.url="redis://..." \
+  --set auth.jwtSecret="your-secret"
+```
 
-  ```bash
-  docker run -d -p 8000:8000 uniauth-web
-  ```
+## API Endpoints
 
-### Kubernetes Deployment
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/health` | None | Liveness probe |
+| `GET` | `/ready` | None | Readiness probe |
+| `POST` | `/api/v1/auth/register` | None | Register org + admin user |
+| `POST` | `/api/v1/auth/login` | None | Login, returns token pair |
+| `POST` | `/api/v1/auth/refresh` | None | Exchange refresh token |
+| `POST` | `/api/v1/auth/logout` | JWT | Revoke session |
+| `POST` | `/api/v1/auth/logout-all` | JWT | Revoke all sessions |
+| `POST` | `/api/v1/auth/password/reset-request` | None | Request password reset email |
+| `POST` | `/api/v1/auth/password/reset-confirm` | None | Confirm reset with token |
+| `PUT` | `/api/v1/auth/password/change` | JWT | Change password |
+| `GET` | `/api/v1/users/me` | JWT | Get own profile |
+| `PUT` | `/api/v1/users/me` | JWT | Update own profile |
+| `GET` | `/api/v1/users` | JWT | List org users |
+| `GET` | `/api/v1/users/{id}` | JWT | Get user |
+| `DELETE` | `/api/v1/users/{id}` | JWT | Deactivate user |
+| `POST` | `/api/v1/users/{id}/roles` | JWT | Assign role to user |
+| `GET` | `/api/v1/organizations/me` | JWT | Get own org |
+| `PUT` | `/api/v1/organizations/me` | JWT | Update own org |
+| `GET` | `/api/v1/roles` | JWT | List roles |
+| `POST` | `/api/v1/roles` | JWT | Create role |
+| `PUT` | `/api/v1/roles/{id}` | JWT | Update role |
+| `DELETE` | `/api/v1/roles/{id}` | JWT | Delete role |
+| `GET` | `/api/v1/roles/permissions` | JWT | List all built-in permissions |
+| `POST` | `/api/v1/roles/{id}/permissions` | JWT | Assign permissions to role |
+| `GET` | `/api/v1/api-keys` | JWT | List API keys |
+| `POST` | `/api/v1/api-keys` | JWT | Create API key |
+| `DELETE` | `/api/v1/api-keys/{id}` | JWT | Revoke API key |
+| `GET` | `/api/v1/audit` | JWT | List audit logs |
+| `GET` | `/api/v1/webhooks` | JWT | List webhooks |
+| `POST` | `/api/v1/webhooks` | JWT | Create webhook |
+| `PUT` | `/api/v1/webhooks/{id}` | JWT | Update webhook |
+| `DELETE` | `/api/v1/webhooks/{id}` | JWT | Delete webhook |
 
-Deployment manifests are available in the `deployment/` directory.
+## Tech Stack
 
-- **Apply Namespace:**
-
-  ```bash
-  kubectl apply -f deployment/namespace.yaml
-  ```
-
-- **Apply ConfigMap and Secrets:**
-
-  ```bash
-  kubectl apply -f deployment/configmap.yaml
-  kubectl apply -f deployment/secret.yaml
-  ```
-
-- **Deploy PostgreSQL and Redis:**
-
-  ```bash
-  kubectl apply -f deployment/postgres-deployment.yaml
-  kubectl apply -f deployment/postgres-service.yaml
-  kubectl apply -f deployment/redis-deployment.yaml
-  kubectl apply -f deployment/redis-service.yaml
-  ```
-
-- **Deploy UniAuth Application:**
-
-  ```bash
-  kubectl apply -f deployment/uniauth-deployment.yaml
-  kubectl apply -f deployment/uniauth-service.yaml
-  ```
-
----
-
-## Contributing
-
-Contributions are welcome! Please read the [CONTRIBUTING](CONTRIBUTING.md) guidelines before submitting a pull request.
-
----
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
+| Layer | Technology |
+|---|---|
+| Language | Go 1.24 |
+| HTTP Router | [chi](https://github.com/go-chi/chi) |
+| Database | PostgreSQL 16 (pgx/v5) |
+| Cache | Redis 7 |
+| Migrations | golang-migrate |
+| JWT | golang-jwt/jwt v5 |
+| Password hashing | bcrypt |
+| Logging | log/slog (stdlib) |
+| Config | Viper |
 
 ## Roadmap
 
-- **Authentication Methods**
-  - [x] **OAuth2:** Implement standard OAuth2 flows.
-  - [ ] **Multi-Factor Authentication (MFA):** Add support for MFA using SMS, email, or authenticator apps.
-  - [ ] **Single Sign-On (SSO):** Enable SSO capabilities.
+- [ ] Email verification flow
+- [ ] Multi-Factor Authentication (TOTP)
+- [ ] OAuth2 provider (use UniAuth as your OAuth2 server)
+- [ ] Social login (Google, GitHub)
+- [ ] Admin dashboard API
+- [ ] TypeScript + Python SDKs
+- [ ] Prometheus metrics
+- [ ] Horizontal scaling guide
 
-- **Social Media Login Integrations**
-  - [ ] **Google Login**
-  - [ ] **Facebook Login**
-  - [ ] **Twitter Login**
-  - [ ] **LinkedIn Login**
+## Contributing
 
-- **Authorization and Access Control**
-  - [ ] **Role-Based Access Control (RBAC):** Implement roles and permissions.
-  - [x] **API Key Management:** Allow service-to-service communication using API keys.
-  - [ ] **Fine-Grained Permissions:** Enable control over specific resources and actions.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- **Administration Dashboard**
-  - [ ] **User Management Interface**
-  - [ ] **Role and Permission Management**
-  - [ ] **System Analytics and Reporting**
+## License
 
-- **Security Enhancements**
-  - [ ] **Audit Logging:** Log important events and actions.
-  - [ ] **Compliance:** Ensure compliance with GDPR, HIPAA, etc.
-
-- **Developer-Friendly Features**
-  - [ ] **SDKs:** Provide SDKs for popular programming languages.
-  - [ ] **Webhooks and Event Notifications**
-
-- **Performance and Scalability**
-  - [ ] **Horizontal Scaling:** Configure auto-scaling for services.
-  - [ ] **Load Testing:** Perform stress testing and optimize performance.
-
-- **Monitoring and Logging**
-  - [ ] **Implement Monitoring Tools:** Integrate Prometheus and Grafana.
-  - [ ] **Centralized Logging:** Set up ELK Stack.
-
-- **CI/CD Pipeline**
-  - [x] **Continuous Integration:** Automate testing.
-  - [ ] **Continuous Deployment:** Automate deployment processes.
-
----
-
-**Note:** This project is in active development. Features are being added continuously. Stay tuned for updates!
-
----
-
-## Contact
-
-- **Project Maintainer:** Your Name ([your.email@example.com](mailto:your.email@example.com))
-- **GitHub Issues:** [https://github.com/yourusername/UniAuth/issues](https://github.com/yourusername/UniAuth/issues)
-
----
-
-Thank you for your interest in UniAuth! We welcome feedback and contributions to make authentication and authorization seamless for everyone.
+MIT
