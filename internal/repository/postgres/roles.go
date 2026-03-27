@@ -21,9 +21,9 @@ func (s *Store) CreateRole(ctx context.Context, orgID uuid.UUID, name string, de
 	return scanRole(row)
 }
 
-func (s *Store) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+func (s *Store) GetRoleByID(ctx context.Context, orgID, id uuid.UUID) (*domain.Role, error) {
 	row := s.pool.QueryRow(ctx,
-		`SELECT id, org_id, name, description, created_at FROM roles WHERE id = $1`, id,
+		`SELECT id, org_id, name, description, created_at FROM roles WHERE org_id = $1 AND id = $2`, orgID, id,
 	)
 	r, err := scanRole(row)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -52,14 +52,14 @@ func (s *Store) ListRolesByOrg(ctx context.Context, orgID uuid.UUID) ([]*domain.
 	return roles, rows.Err()
 }
 
-func (s *Store) UpdateRole(ctx context.Context, id uuid.UUID, name string, description *string) (*domain.Role, error) {
+func (s *Store) UpdateRole(ctx context.Context, orgID, id uuid.UUID, name string, description *string) (*domain.Role, error) {
 	row := s.pool.QueryRow(ctx,
 		`UPDATE roles
-		 SET name        = COALESCE($2, name),
-		     description = COALESCE($3, description)
-		 WHERE id = $1
+		 SET name        = COALESCE($3, name),
+		     description = COALESCE($4, description)
+		 WHERE org_id = $1 AND id = $2
 		 RETURNING id, org_id, name, description, created_at`,
-		id, name, description,
+		orgID, id, name, description,
 	)
 	r, err := scanRole(row)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -68,8 +68,15 @@ func (s *Store) UpdateRole(ctx context.Context, id uuid.UUID, name string, descr
 	return r, err
 }
 
-func (s *Store) DeleteRole(ctx context.Context, id uuid.UUID) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM roles WHERE id = $1`, id)
+func (s *Store) DeleteRole(ctx context.Context, orgID, id uuid.UUID) error {
+	var roleID uuid.UUID
+	err := s.pool.QueryRow(ctx,
+		`DELETE FROM roles WHERE org_id = $1 AND id = $2 RETURNING id`,
+		orgID, id,
+	).Scan(&roleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrNotFound
+	}
 	return err
 }
 

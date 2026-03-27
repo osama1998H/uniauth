@@ -181,7 +181,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgen
 		return nil, nil, domain.ErrTokenInvalid
 	}
 
-	user, err := s.store.GetUserByID(ctx, claims.UserID)
+	user, err := s.store.GetUserByID(ctx, claims.OrgID, claims.UserID)
 	if err != nil || !user.IsActive {
 		return nil, nil, domain.ErrUnauthorized
 	}
@@ -298,12 +298,12 @@ func (s *AuthService) ConfirmPasswordReset(ctx context.Context, rawToken, newPas
 
 // ChangePassword updates a user's password after verifying the current one,
 // then blacklists the current access token so it is rejected on all instances.
-func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, accessTokenID uuid.UUID, accessTokenExpiresAt time.Time) error {
+func (s *AuthService) ChangePassword(ctx context.Context, orgID, userID uuid.UUID, currentPassword, newPassword string, accessTokenID uuid.UUID, accessTokenExpiresAt time.Time) error {
 	if err := validatePassword(newPassword); err != nil {
 		return err
 	}
 
-	user, err := s.store.GetUserByID(ctx, userID)
+	user, err := s.store.GetUserByID(ctx, orgID, userID)
 	if err != nil {
 		return domain.ErrNotFound
 	}

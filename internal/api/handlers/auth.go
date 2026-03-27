@@ -297,6 +297,11 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	var req struct {
 		CurrentPassword string `json:"current_password"`
@@ -314,7 +319,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	tokenID, _ := middleware.GetTokenID(r.Context())
 	tokenExpiry, _ := middleware.GetTokenExpiry(r.Context())
 
-	if err := h.authSvc.ChangePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword, tokenID, tokenExpiry); err != nil {
+	if err := h.authSvc.ChangePassword(r.Context(), orgID, userID, req.CurrentPassword, req.NewPassword, tokenID, tokenExpiry); err != nil {
 		handleServiceError(w, err)
 		return
 	}
