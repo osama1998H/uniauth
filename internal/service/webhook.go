@@ -75,7 +75,7 @@ func (w *WebhookService) deliver(url, secret, event string, payload any) {
 		w.logger.Warn("webhook: delivery failed", "url", url, "error", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		w.logger.Warn("webhook: non-2xx response", "url", url, "status", resp.StatusCode)

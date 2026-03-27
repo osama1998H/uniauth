@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -67,6 +68,9 @@ func (s *AuthService) Register(ctx context.Context, in RegisterInput, ipAddress,
 	}
 
 	slug := slugify(in.OrgName)
+	if slug == "" {
+		return nil, fmt.Errorf("%w: org_name must contain at least one alphanumeric character", domain.ErrInvalidInput)
+	}
 
 	// Check if org slug is taken
 	if _, err := s.store.GetOrganizationBySlug(ctx, slug); err == nil {
@@ -327,6 +331,26 @@ func hashString(s string) string {
 func validatePassword(p string) error {
 	if len(p) < 8 {
 		return fmt.Errorf("%w: minimum 8 characters", domain.ErrWeakPassword)
+	}
+	var hasUpper, hasDigit, hasSpecial bool
+	for _, c := range p {
+		switch {
+		case unicode.IsUpper(c):
+			hasUpper = true
+		case unicode.IsDigit(c):
+			hasDigit = true
+		case !unicode.IsLetter(c) && !unicode.IsDigit(c):
+			hasSpecial = true
+		}
+	}
+	if !hasUpper {
+		return fmt.Errorf("%w: must contain at least one uppercase letter", domain.ErrWeakPassword)
+	}
+	if !hasDigit {
+		return fmt.Errorf("%w: must contain at least one digit", domain.ErrWeakPassword)
+	}
+	if !hasSpecial {
+		return fmt.Errorf("%w: must contain at least one special character", domain.ErrWeakPassword)
 	}
 	return nil
 }
