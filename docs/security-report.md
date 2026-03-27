@@ -1,0 +1,78 @@
+**1. Executive Summary**
+This repo’s main security problems are real and concentrated in auth semantics, authorization, and tenant isolation. The highest-risk issue is that refresh tokens are structurally indistinguishable from access tokens and are accepted by normal bearer-token middleware, which turns a stolen refresh token into a long-lived API credential. The next tier is that most protected routes check only “has a valid JWT,” not “has the right permission,” and several `{id}` operations are not scoped by `org_id`, which breaks multi-tenant isolation if a foreign UUID is known.
+
+I reviewed the codebase in parallel across auth/session logic, authorization/tenant boundaries, and config/deployment. I did not modify code. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
+
+**2. Architecture and Attack Surface**
+- Entry points: public auth routes, `/health`, `/ready`, `/swagger/*`, and JWT-protected `/api/v1/*` in [router.go](/Users/osamamuhammed/uniauth/internal/api/router.go#L76).
+- Trust boundaries: client request -> handlers -> services -> Postgres/Redis, plus outbound SMTP in [email.go](/Users/osamamuhammed/uniauth/internal/service/email.go#L21) and outbound webhook delivery in [webhook.go](/Users/osamamuhammed/uniauth/internal/service/webhook.go#L35).
+- Sensitive assets: `JWT_SECRET`, refresh tokens, password-reset tokens, API keys, webhook secrets, audit logs, org/user/role relationships.
+- High-value surfaces: login/refresh/reset flows, JWT middleware, RBAC/admin routes, object-by-ID handlers, webhook registration, rate limiting, config/Helm/K8s/CI.
+
+**3. Prioritized Review Plan**
+1. Verify token/session semantics, especially access vs refresh separation and invalidation paths.
+2. Verify route authorization and whether RBAC is actually enforced.
+3. Verify tenant isolation on every object-by-ID lookup and mutation.
+4. Verify abuse controls: rate limiting, client-IP trust, reset flow, webhook SSRF.
+5. Verify secrets/config/deployment defaults and dependency/supply-chain hygiene.
+
+**4. Findings List**
+1. **Refresh tokens are accepted as bearer access tokens** — Critical, High confidence. Affected: [jwt.go](/Users/osamamuhammed/uniauth/pkg/token/jwt.go#L36), [auth middleware](/Users/osamamuhammed/uniauth/internal/api/middleware/auth.go#L29), [auth service](/Users/osamamuhammed/uniauth/internal/service/auth.go#L165). Evidence: access and refresh JWTs have the same claims and no token-type claim, and `JWTAuth` accepts any valid signed JWT; logout/reset flows revoke session rows or blacklist only the current access-token JTI. Risk: a stolen refresh token can call protected APIs for up to 7 days, including after logout, logout-all, password change, or password reset. Preconditions: attacker obtains any refresh token. Fix: add explicit token purpose and reject non-access tokens in `JWTAuth`, and bind refresh use to active session state. Verify with integration tests that refresh tokens get `401` on protected routes and invalidation paths revoke both token classes. OWASP: A01 Broken Access Control / session management.
+
+2. **Protected admin routes have authentication but almost no authorization** — High, High confidence. Affected: [router.go](/Users/osamamuhammed/uniauth/internal/api/router.go#L95), [rbac.go](/Users/osamamuhammed/uniauth/internal/service/rbac.go#L103), [users handler](/Users/osamamuhammed/uniauth/internal/api/handlers/users.go#L104), [roles handler](/Users/osamamuhammed/uniauth/internal/api/handlers/roles.go#L56), [audit handler](/Users/osamamuhammed/uniauth/internal/api/handlers/audit.go#L41), [apikey handler](/Users/osamamuhammed/uniauth/internal/api/handlers/apikeys.go#L34), [webhook handler](/Users/osamamuhammed/uniauth/internal/api/handlers/webhooks.go#L35). Evidence: every protected route is gated only by `JWTAuth`; `HasPermission` exists but is never called. Risk: any authenticated user can list/deactivate users, manage roles, create/revoke API keys, read audit logs, manage webhooks, and update the org. Preconditions: attacker has any valid JWT in the tenant. Fix: add explicit permission checks per route/action and define a permission matrix. Verify with negative tests for every admin endpoint using a valid but low-privilege JWT. OWASP: A01 Broken Access Control / privilege escalation.
+
+3. **User and role object access is not consistently scoped by `org_id`** — High, High confidence. Affected: [users handler](/Users/osamamuhammed/uniauth/internal/api/handlers/users.go#L143), [user service](/Users/osamamuhammed/uniauth/internal/service/user.go#L24), [users repo](/Users/osamamuhammed/uniauth/internal/repository/postgres/users.go#L24), [roles handler](/Users/osamamuhammed/uniauth/internal/api/handlers/roles.go#L129), [rbac service](/Users/osamamuhammed/uniauth/internal/service/rbac.go#L45), [roles repo](/Users/osamamuhammed/uniauth/internal/repository/postgres/roles.go#L24). Evidence: `GetUserByID`, `UpdateUser`, `DeactivateUser`, `GetRoleByID`, `UpdateRole`, and `DeleteRole` operate on raw UUIDs without caller-org filtering. Risk: if a foreign UUID is learned from logs, support data, exports, or future endpoints, a user in one org can read or mutate another org’s user/role. Preconditions: attacker knows a target UUID. Fix: pass `org_id` into service/repo methods and enforce it on all lookups/mutations, returning `404` for out-of-org objects. Verify with cross-org tests for every `{id}` route. OWASP: A01 Broken Access Control / multi-tenant isolation failure.
+
+4. **Cross-tenant user-role links are possible** — High, High confidence. Affected: [rbac service](/Users/osamamuhammed/uniauth/internal/service/rbac.go#L78), [roles repo](/Users/osamamuhammed/uniauth/internal/repository/postgres/roles.go#L113), [migration](/Users/osamamuhammed/uniauth/migrations/000001_init_schema.up.sql#L91). Evidence: `AssignRoleToUser` inserts `(user_id, role_id)` without checking that both belong to the same org, and the `user_roles` table has no same-org enforcement. Risk: cross-tenant privilege contamination or integrity damage if a victim user UUID and a role UUID are known. Preconditions: attacker knows both IDs. Fix: validate same-org in service logic immediately, then add DB-level enforcement via schema redesign or trigger. Verify with cross-org assignment tests. OWASP: A01 Broken Access Control.
+
+5. **Password-reset tokens are logged in plaintext when SMTP is unset** — High, High confidence. Affected: [email.go](/Users/osamamuhammed/uniauth/internal/service/email.go#L21), [Helm values](/Users/osamamuhammed/uniauth/helm/uniauth/values.yaml#L12), [k8s configmap](/Users/osamamuhammed/uniauth/k8s/configmap.yaml#L9). Evidence: `SendPasswordReset` prints the live reset token to stdout, and production-oriented manifests default to SMTP unset. Risk: anyone with pod/log aggregation access can take over accounts by replaying reset tokens. Preconditions: SMTP is unset in a real environment and attacker can read logs. Fix: never print tokens; fail closed outside development; if dev mode is needed, log only that a reset was requested. Verify by requesting a reset in production mode with no SMTP and confirming no token reaches stdout/logs. OWASP: A02 Cryptographic Failures / A05 Security Misconfiguration.
+
+6. **Webhook registration enables blind SSRF** — Medium, High confidence. Affected: [webhooks handler](/Users/osamamuhammed/uniauth/internal/api/handlers/webhooks.go#L68), [webhook service](/Users/osamamuhammed/uniauth/internal/service/webhook.go#L52). Evidence: webhook URLs are accepted with only non-empty validation and later used in `http.NewRequest` + `client.Do`. Risk: an authenticated user can make the server POST to arbitrary internal or external hosts, which is dangerous in cloud/VPC environments even without reading the response body. Preconditions: attacker has a JWT and the runtime can egress to sensitive networks. Fix: require `https`, block RFC1918/link-local/metadata ranges, re-resolve DNS safely, and consider egress allowlists. Verify with dynamic tests against blocked private/metadata targets. OWASP: A10 SSRF.
+
+7. **Client-controlled forwarded IP headers can bypass rate limiting and poison audit trails** — Medium, High confidence. Affected: [ratelimit middleware](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit.go#L12), [auth handlers](/Users/osamamuhammed/uniauth/internal/api/handlers/auth.go#L44). Evidence: `RealIPFromRequest` blindly trusts `X-Real-IP` and `X-Forwarded-For`; the limiter and auth logging use that value. Risk: an attacker can rotate spoofed headers to evade per-IP login/reset throttling and falsify audit IPs. Preconditions: the app sees unsanitized proxy headers. Fix: trust forwarded headers only from configured reverse proxies; otherwise use `RemoteAddr`. Verify by sending repeated auth requests with varying `X-Forwarded-For` and confirming one limiter bucket unless the request came through a trusted proxy. Category: abuse protection / A05 Security Misconfiguration.
+
+8. **Revocation and throttling fail open when Redis is unavailable** — Medium, High confidence. Affected: [auth middleware](/Users/osamamuhammed/uniauth/internal/api/middleware/auth.go#L44), [auth service](/Users/osamamuhammed/uniauth/internal/service/auth.go#L313), [ratelimit middleware](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit.go#L18). Evidence: blacklist lookup failures allow the request, blacklist writes are ignored, and rate limiting is skipped on Redis errors. Risk: during a Redis outage or partition, revoked access tokens remain usable until expiry and brute-force controls disappear. Preconditions: Redis outage/partition. Fix: decide explicitly which endpoints must fail closed, and at minimum fail closed for logout-sensitive auth decisions or degrade with alarms/feature flags. Verify with tests that simulate Redis failures. Category: session management / availability-hardening.
+
+9. **JWT secret strength is documented but not enforced** — Medium, Medium confidence. Affected: [main.go](/Users/osamamuhammed/uniauth/cmd/server/main.go#L115), [config.go](/Users/osamamuhammed/uniauth/internal/config/config.go#L53), [docker-compose](/Users/osamamuhammed/uniauth/docker-compose.yml#L12). Evidence: startup only checks `JWT_SECRET != ""`; docs say “minimum 32 characters,” but code does not enforce it. Risk: weak or placeholder HMAC secrets make token forgery practical in misconfigured self-hosted deployments. Preconditions: operator sets a weak/default secret. Fix: reject short or known-placeholder secrets at startup. Verify with config validation tests. OWASP: A02 Cryptographic Failures.
+
+**Lower-Severity Findings**
+- **`/ready` leaks backend error details** — Low, High confidence. Affected: [health handler](/Users/osamamuhammed/uniauth/internal/api/handlers/health.go#L40). It returns raw DB/Redis error text to unauthenticated callers, which can expose internal topology or outage details. Fix: return generic health states and log details server-side.
+- **CI/deploy artifacts are mutable and partially unverified** — Low, High confidence. Affected: [CI workflow](/Users/osamamuhammed/uniauth/.github/workflows/ci.yml#L47), [Helm values](/Users/osamamuhammed/uniauth/helm/uniauth/values.yaml#L6), [k8s deployment](/Users/osamamuhammed/uniauth/k8s/deployment.yaml#L31). `migrate` is downloaded without checksum verification, Actions are tag-pinned not SHA-pinned, and deployments default to `:latest`.
+
+**Dead Ends / False Positives**
+- I found no shell-exec path, no file upload/download path, and no obvious SQL injection path; queries are parameterized.
+- `APIKeyAuth` and API-key scopes are effectively dead code today because routes use only `JWTAuth`; that is a design mismatch, not an active bypass in the current router.
+- `CORS_ORIGINS="*"` is an insecure default, but with bearer-header auth and no cookie/session auth in this repo, I would treat it as hardening, not a top exploit claim.
+
+**5. Remediation Roadmap**
+- Immediate hotfix 1: separate access and refresh token semantics, enforce access-only in `JWTAuth`, and harden invalidation. Complexity: Medium-High. Regression risk: Medium-High. Order: 1.
+- Immediate hotfix 2: add authorization checks to all privileged routes. Complexity: Medium. Regression risk: Medium. Order: 2.
+- Immediate hotfix 3: make all user/role object lookups and mutations tenant-scoped. Complexity: Medium. Regression risk: Medium. Order: 3.
+- Immediate hotfix 4: stop logging reset tokens and require SMTP or explicit dev-mode behavior. Complexity: Small. Regression risk: Low. Order: 4.
+- Short-term hardening 1: add webhook URL validation and outbound SSRF guards. Complexity: Medium. Regression risk: Medium. Order: 5.
+- Short-term hardening 2: replace naive forwarded-header trust with trusted-proxy-aware IP extraction. Complexity: Small-Medium. Regression risk: Medium. Order: 6.
+- Short-term hardening 3: enforce JWT secret quality, sanitize `/ready`, and define Redis degraded-mode behavior. Complexity: Small. Regression risk: Low-Medium. Order: 7.
+- Structural improvement 1: introduce reusable authorization middleware/policy mapping instead of ad hoc handler checks. Complexity: High. Regression risk: Medium.
+- Structural improvement 2: add DB-level same-org enforcement for role assignments. Complexity: High. Regression risk: Medium.
+- Structural improvement 3: pin CI actions/artifacts/images and add `govulncheck` to CI. Complexity: Small. Regression risk: Low.
+
+**6. Verification Checklist**
+- Add a test proving a refresh token gets `401` on a normal protected route like `/api/v1/users/me`.
+- Add tests proving logout, logout-all, password change, and password reset invalidate both access and refresh credentials in practice.
+- Add negative authz tests for every privileged endpoint using a valid but low-privilege JWT.
+- Add cross-org tests for `GET /users/{id}`, `DELETE /users/{id}`, `PUT /roles/{id}`, `DELETE /roles/{id}`, `POST /roles/{id}/permissions`, and `POST /users/{id}/roles`.
+- Add tests rejecting cross-org role assignment.
+- Add tests that spoofed `X-Forwarded-For` does not create separate limiter buckets unless the request came through a trusted proxy.
+- Add tests rejecting private/link-local/metadata webhook targets.
+- Add startup/config tests that weak or placeholder `JWT_SECRET` values fail fast.
+- Add a regression test confirming password-reset tokens never appear in stdout/logs.
+- Add `govulncheck ./...` to CI and pin supply-chain artifacts.
+
+**7. Open Questions / Assumptions**
+- Closing finding 1 safely may require invalidating all existing JWTs or accepting a short coexistence window; there is no reliable way to distinguish already-issued access vs refresh JWTs because they were minted with the same structure.
+- I did not verify the real ingress/proxy chain. If a trusted proxy rewrites forwarded headers correctly, finding 7 is reduced but not removed for direct-access cases.
+- I did not verify pod/network egress policy. If egress is already restricted from the runtime, finding 6 is reduced.
+- I did not verify production log access controls. If logs are broadly accessible, finding 5 becomes even more serious operationally.
+- I could not verify dependency-level vulns because `govulncheck` is not installed in this workspace.
+
+I’m stopping here as requested. If you approve, I’ll implement fixes in the order above and keep the rollout plan conservative to minimize regressions.
