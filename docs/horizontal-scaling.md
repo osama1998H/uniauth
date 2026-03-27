@@ -84,34 +84,7 @@ Access tokens have a short TTL (default 15 minutes). Even without Redis, a black
 
 ## Kubernetes Deployment
 
-The Helm chart in `uniauth/` is ready for multi-replica deployments.
-
-### Basic Multi-Replica Deploy
-
-```bash
-helm upgrade --install uniauth ./uniauth \
-  --set replicaCount=3 \
-  --set image.repository=ghcr.io/osama1998h/uniauth \
-  --set image.tag=v1.0.0 \
-  --set postgres.enabled=false \
-  --set redis.enabled=false \
-  --set env.DATABASE_URL=postgres://... \
-  --set env.REDIS_URL=redis://... \
-  --set secrets.JWT_SECRET=your-secret-min-32-chars
-```
-
-Set `postgres.enabled=false` and `redis.enabled=false` to use your external managed services.
-
-### Horizontal Pod Autoscaler
-
-The chart ships with an HPA preconfigured. Adjust thresholds in `uniauth/values.yaml`:
-
-```yaml
-replicaCount: 2   # minimum replicas
-
-# HPA is defined in uniauth/templates/hpa.yaml
-# Default: 2–10 replicas, scales on CPU utilisation
-```
+UniAuth is stateless and works well with Kubernetes. Deploy it with any standard Kubernetes manifests or your preferred tooling.
 
 ### Health and Readiness Probes
 

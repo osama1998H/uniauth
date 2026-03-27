@@ -37,7 +37,6 @@ uniauth/
 ├── migrations/                 # golang-migrate SQL files (up/down)
 ├── sql/                        # sqlc schema and query sources
 ├── sqlc.yaml                   # sqlc code generation config
-├── uniauth/                    # Helm chart for Kubernetes
 ├── Dockerfile                  # Multi-stage: go:1.24-alpine → scratch
 ├── docker-compose.yml          # Local dev stack (app, postgres, redis, mailhog)
 ├── Makefile                    # All developer commands (see below)
@@ -351,26 +350,6 @@ make docker-down     # Tear down
 ```
 
 The final Docker image uses `scratch` as base — no shell, no package manager. Only the binary, CA certificates, and migration files are included.
-
-### Helm (Kubernetes)
-
-Helm chart lives in `uniauth/`. Key values to override:
-
-```yaml
-image:
-  repository: ghcr.io/osama1998h/uniauth
-  tag: latest
-
-replicaCount: 2
-
-postgres:
-  enabled: true   # deploys bundled postgres; use false + DATABASE_URL for external
-
-redis:
-  enabled: true
-```
-
-Horizontal Pod Autoscaler is configured (2–10 replicas). Readiness and liveness probes point to `/ready` and `/health`.
 
 ---
 
