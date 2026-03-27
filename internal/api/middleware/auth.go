@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -47,7 +48,7 @@ func JWTAuth(maker *token.Maker, c tokenBlacklistChecker, logger *slog.Logger) f
 			}
 
 			// Allow a nil checker in tests, but fail closed on runtime Redis errors.
-			if c != nil {
+			if !isNilTokenBlacklistChecker(c) {
 				blacklisted, err := c.IsTokenBlacklisted(r.Context(), claims.TokenID.String())
 				if err != nil {
 					if logger != nil {
@@ -139,4 +140,18 @@ func writeServiceUnavailable(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusServiceUnavailable)
 	_, _ = w.Write([]byte(`{"error":"` + msg + `"}`))
+}
+
+func isNilTokenBlacklistChecker(checker tokenBlacklistChecker) bool {
+	if checker == nil {
+		return true
+	}
+
+	value := reflect.ValueOf(checker)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }

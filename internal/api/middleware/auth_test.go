@@ -11,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
+	"github.com/osama1998h/uniauth/internal/repository/cache"
 	"github.com/osama1998h/uniauth/pkg/token"
 )
 
@@ -81,6 +82,35 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	}
 	if !reached {
 		t.Error("next handler was not called for valid token")
+	}
+}
+
+func TestJWTAuth_ValidToken_WithTypedNilBlacklistChecker(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.CreateAccessToken(userID, orgID)
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	var redisCache *cache.Cache
+
+	reached := false
+	handler := JWTAuth(maker, redisCache, nil)(nextHandler(&reached))
+
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if !reached {
+		t.Error("next handler was not called for valid token with typed-nil checker")
 	}
 }
 
