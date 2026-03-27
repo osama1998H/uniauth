@@ -12,7 +12,7 @@ services:
     environment:
       DATABASE_URL: postgres://uniauth:uniauth@postgres:5432/uniauth?sslmode=disable
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: change-me-in-production-use-a-long-random-string
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env or environment}
       ENVIRONMENT: development
       PORT: 8080
       APP_BASE_URL: http://localhost:8080

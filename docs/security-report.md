@@ -1,9 +1,9 @@
 **1. Executive Summary**
-This repo’s remaining main security problems are now concentrated in configuration and deployment hardening. The highest-risk remaining issue is weak JWT secret acceptance, followed by the remaining lower-severity readiness and supply-chain hardening gaps.
+This repo’s remaining main security problems are now concentrated in lower-severity readiness and deployment hardening gaps.
 
-Update (2026-03-28): findings 1, 2, 3, 4, 5, 6, 7, and 8 have been fixed in the repo. The remaining findings below are still outstanding unless explicitly marked otherwise.
+Update (2026-03-28): findings 1, 2, 3, 4, 5, 6, 7, 8, and 9 have been fixed in the repo. The remaining findings below are still outstanding unless explicitly marked otherwise.
 
-This report began as a read-only review of the codebase across auth/session logic, authorization/tenant boundaries, and config/deployment. Findings 1, 2, 3, 4, 5, 6, 7, and 8 have since been remediated in the repo. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
+This report began as a read-only review of the codebase across auth/session logic, authorization/tenant boundaries, and config/deployment. Findings 1, 2, 3, 4, 5, 6, 7, 8, and 9 have since been remediated in the repo. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
 
 **2. Architecture and Attack Surface**
 - Entry points: public auth routes, `/health`, `/ready`, `/swagger/*`, and JWT-protected `/api/v1/*` in [router.go](/Users/osamamuhammed/uniauth/internal/api/router.go#L76).
@@ -51,7 +51,9 @@ This report began as a read-only review of the codebase across auth/session logi
    Status: Fixed.
    Remediation implemented: Redis-backed auth controls now use a strict-auth fail-closed policy: `JWTAuth` returns `503` when blacklist lookups fail, `/api/v1/auth/*` requests return `503` when rate limiting cannot be enforced, and logout/password-change flows abort with `ErrServiceUnavailable` before mutating DB-backed auth state if the access-token blacklist write fails. Supporting docs were updated in [horizontal-scaling.md](/Users/osamamuhammed/uniauth/docs/horizontal-scaling.md#L1). Regression coverage was added in [auth_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/auth_test.go#L1), [ratelimit_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit_test.go#L1), [auth_redis_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_redis_test.go#L1), and [response_test.go](/Users/osamamuhammed/uniauth/internal/api/handlers/response_test.go#L1).
 
-9. **JWT secret strength is documented but not enforced** — Medium, Medium confidence. Affected: [main.go](/Users/osamamuhammed/uniauth/cmd/server/main.go#L115), [config.go](/Users/osamamuhammed/uniauth/internal/config/config.go#L53), [docker-compose](/Users/osamamuhammed/uniauth/docker-compose.yml#L12). Evidence: startup only checks `JWT_SECRET != ""`; docs say “minimum 32 characters,” but code does not enforce it. Risk: weak or placeholder HMAC secrets make token forgery practical in misconfigured self-hosted deployments. Preconditions: operator sets a weak/default secret. Fix: reject short or known-placeholder secrets at startup. Verify with config validation tests. OWASP: A02 Cryptographic Failures.
+9. **JWT secret strength is documented but not enforced** — Medium, Medium confidence. Affected: [config load](/Users/osamamuhammed/uniauth/internal/config/config.go#L75), [JWT secret validator](/Users/osamamuhammed/uniauth/internal/config/config.go#L148), [main.go](/Users/osamamuhammed/uniauth/cmd/server/main.go#L78), [docker-compose](/Users/osamamuhammed/uniauth/docker-compose.yml#L15). Evidence before remediation: startup only checked `JWT_SECRET != ""`; docs said “minimum 32 characters,” but code did not enforce it. Risk: weak or placeholder HMAC secrets make token forgery practical in misconfigured self-hosted deployments. Preconditions: operator sets a weak/default secret. Fix: reject short or known-placeholder secrets at startup. Verify with config validation tests. OWASP: A02 Cryptographic Failures.
+   Status: Fixed.
+   Remediation implemented: `config.Load()` now rejects blank, short, and normalized placeholder/default `JWT_SECRET` values before any dependency startup, startup relies on config-load failure instead of a late empty-only check, and local Docker Compose now requires the secret from the operator environment instead of shipping a repo placeholder. Regression coverage was added in [config_test.go](/Users/osamamuhammed/uniauth/internal/config/config_test.go#L1).
 
 **Lower-Severity Findings**
 - **`/ready` leaks backend error details** — Low, High confidence. Affected: [health handler](/Users/osamamuhammed/uniauth/internal/api/handlers/health.go#L40). It returns raw DB/Redis error text to unauthenticated callers, which can expose internal topology or outage details. Fix: return generic health states and log details server-side.
@@ -69,7 +71,8 @@ This report began as a read-only review of the codebase across auth/session logi
 - Completed hotfix 4: stop logging reset tokens and fail closed when reset-email delivery is unavailable. Complexity: Small. Regression risk: Low. Order: 4.
 - Completed hardening 1: add webhook URL validation and outbound SSRF guards. Complexity: Medium. Regression risk: Medium. Order: 5.
 - Completed hardening 2: replace naive forwarded-header trust with trusted-proxy-aware IP extraction and explicit proxy CIDR configuration. Complexity: Small-Medium. Regression risk: Medium. Order: 6.
-- Short-term hardening 3: enforce JWT secret quality and sanitize `/ready`. Complexity: Small. Regression risk: Low-Medium. Order: 7.
+- Completed hardening 3: enforce JWT secret quality at config load and require operator-supplied secrets in Docker Compose. Complexity: Small. Regression risk: Low-Medium. Order: 7.
+- Short-term hardening 4: sanitize `/ready`. Complexity: Small. Regression risk: Low. Order: 8.
 - Completed structural improvement 1: introduce reusable authorization middleware/policy mapping instead of ad hoc handler checks. Complexity: High. Regression risk: Medium.
 - Completed structural improvement 2: add DB-level same-org enforcement for role assignments and auto-remove legacy cross-tenant links during migration. Complexity: Medium. Regression risk: Medium.
 - Structural improvement 3: pin CI actions/artifacts/images and add `govulncheck` to CI. Complexity: Small. Regression risk: Low.
@@ -83,7 +86,7 @@ This report began as a read-only review of the codebase across auth/session logi
 - Implemented: RBAC service tests now reject foreign-org role assignment and permission assignment, and verify `Authorize` returns `ErrForbidden` for missing grants while allowing superuser bypass in [rbac_scope_test.go](/Users/osamamuhammed/uniauth/internal/service/rbac_scope_test.go#L1).
 - Implemented: trusted-proxy-aware IP resolution tests now confirm untrusted peers cannot spoof forwarded headers, trusted proxy chains resolve the correct client IP, and rate limiting buckets remain stable under header spoofing unless the peer is explicitly trusted in [ratelimit_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit_test.go#L1).
 - Implemented: webhook validation and delivery tests now reject private/link-local/metadata webhook targets and ensure blocked destinations are not dialed in [webhook_test.go](/Users/osamamuhammed/uniauth/internal/service/webhook_test.go#L1) and [webhooks_test.go](/Users/osamamuhammed/uniauth/internal/api/handlers/webhooks_test.go#L1).
-- Add startup/config tests that weak or placeholder `JWT_SECRET` values fail fast.
+- Implemented: startup/config tests now prove blank, short, and placeholder `JWT_SECRET` values fail fast without echoing the configured secret, while valid secrets continue to load successfully in [config_test.go](/Users/osamamuhammed/uniauth/internal/config/config_test.go#L1).
 - Implemented: password reset email tests now confirm reset tokens and links are never written to logs in [email_test.go](/Users/osamamuhammed/uniauth/internal/service/email_test.go#L1).
 - Implemented: auth reset-flow tests now confirm failed delivery deletes reset-token rows while successful delivery preserves a usable token in [auth_reset_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_reset_test.go#L1).
 - Implemented: Redis outage regression tests now confirm blacklist lookup failures return `503`, auth-route rate limiting fails closed with `503`, non-auth public routes remain available, and logout/password-change flows do not mutate DB-backed auth state when blacklist writes fail in [auth_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/auth_test.go#L1), [ratelimit_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit_test.go#L1), and [auth_redis_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_redis_test.go#L1).
@@ -94,4 +97,4 @@ This report began as a read-only review of the codebase across auth/session logi
 - I did not verify pod/network egress policy. Existing egress controls remain useful defense-in-depth on top of the new webhook validation and delivery guards.
 - I could not verify dependency-level vulns because `govulncheck` is not installed in this workspace.
 
-Quick note: 3 security issues remain open in the report: finding 9 plus the 2 lower-severity hardening items.
+Quick note: 2 security issues remain open in the report: the 2 lower-severity hardening items.

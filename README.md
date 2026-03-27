@@ -28,7 +28,7 @@ git clone https://github.com/osama1998h/uniauth.git && cd uniauth
 
 # 2. Configure
 cp .env.example .env
-# Edit .env — at minimum set JWT_SECRET
+# Edit .env — generate JWT_SECRET with: openssl rand -hex 32
 
 # 3. Start
 docker compose up
@@ -136,7 +136,7 @@ All configuration is via environment variables (see `.env.example`):
 | `TRUSTED_PROXY_CIDRS` | — | Comma-separated proxy CIDRs or IPs allowed to supply forwarded client IP headers; empty means trust no proxies |
 | `DATABASE_URL` | — | PostgreSQL connection string (required) |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
-| `JWT_SECRET` | — | HMAC secret for JWTs (required, min 32 chars) |
+| `JWT_SECRET` | — | HMAC secret for JWTs (required, random 32+ chars, not a placeholder/default) |
 | `ACCESS_TOKEN_DURATION` | `15m` | Access token lifetime |
 | `REFRESH_TOKEN_DURATION` | `168h` | Refresh token lifetime (7 days) |
 | `RESET_TOKEN_DURATION` | `1h` | Password reset token lifetime |
@@ -154,10 +154,12 @@ If UniAuth is deployed behind a reverse proxy or load balancer, set `TRUSTED_PRO
 ### Docker
 
 ```bash
+export JWT_SECRET="$(openssl rand -hex 32)"
+
 docker run -d \
   -e DATABASE_URL="postgres://..." \
   -e REDIS_URL="redis://..." \
-  -e JWT_SECRET="your-secret" \
+  -e JWT_SECRET="$JWT_SECRET" \
   -e TRUSTED_PROXY_CIDRS="10.0.0.0/8" \
   -p 8080:8080 \
   ghcr.io/osama1998h/uniauth:latest

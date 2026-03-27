@@ -112,12 +112,6 @@ func main() {
 	defer func() { _ = redisCache.Close() }()
 	logger.Info("redis connected")
 
-	// JWT secret validation
-	if cfg.Auth.JWTSecret == "" {
-		logger.Error("JWT_SECRET must be set")
-		os.Exit(1)
-	}
-
 	// HTTP server
 	handler := api.NewRouter(cfg, store, redisCache, logger)
 	srv := &http.Server{
