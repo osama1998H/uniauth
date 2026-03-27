@@ -1457,7 +1457,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registers a new webhook endpoint. The HMAC signing secret is returned only in this response — store it securely.",
+                "description": "Registers a new webhook endpoint. Webhook URLs must be direct public HTTPS endpoints; localhost, private, link-local, and metadata-style targets are rejected. Redirects are not followed. The HMAC signing secret is returned only in this response — store it securely.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1487,7 +1487,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid or unsafe webhook URL",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
@@ -1514,7 +1514,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the URL, event subscriptions, and/or active status of a webhook.",
+                "description": "Updates the URL, event subscriptions, and/or active status of a webhook. If a URL is provided, it must be a direct public HTTPS endpoint and redirects will not be followed during delivery.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1551,7 +1551,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid or unsafe webhook URL",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
