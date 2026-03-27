@@ -133,6 +133,7 @@ All configuration is via environment variables (see `.env.example`):
 |---|---|---|
 | `PORT` | `8080` | HTTP listen port |
 | `ENVIRONMENT` | `development` | `development` or `production` |
+| `TRUSTED_PROXY_CIDRS` | — | Comma-separated proxy CIDRs or IPs allowed to supply forwarded client IP headers; empty means trust no proxies |
 | `DATABASE_URL` | — | PostgreSQL connection string (required) |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
 | `JWT_SECRET` | — | HMAC secret for JWTs (required, min 32 chars) |
@@ -146,6 +147,8 @@ All configuration is via environment variables (see `.env.example`):
 | `SMTP_FROM` | — | From address for emails |
 | `APP_BASE_URL` | `http://localhost:8080` | Base URL for email links |
 
+If UniAuth is deployed behind a reverse proxy or load balancer, set `TRUSTED_PROXY_CIDRS` to that proxy's CIDR or IP. If it is left empty, UniAuth ignores forwarded IP headers and uses the direct peer IP instead.
+
 ## Deployment
 
 ### Docker
@@ -155,6 +158,7 @@ docker run -d \
   -e DATABASE_URL="postgres://..." \
   -e REDIS_URL="redis://..." \
   -e JWT_SECRET="your-secret" \
+  -e TRUSTED_PROXY_CIDRS="10.0.0.0/8" \
   -p 8080:8080 \
   ghcr.io/osama1998h/uniauth:latest
 ```

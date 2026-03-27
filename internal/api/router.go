@@ -46,13 +46,14 @@ func NewRouter(
 	apiKeyH := handlers.NewAPIKeyHandler(apiKeySvc)
 	auditH := handlers.NewAuditHandler(store)
 	webhookH := handlers.NewWebhookHandler(webhookSvc)
+	clientIPResolver := middleware.NewClientIPResolver(cfg.Server.TrustedProxyRanges)
 
 	// --- Router ---
 	r := chi.NewRouter()
 
 	// Global middleware
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.RealIP)
+	r.Use(middleware.PopulateClientIP(clientIPResolver))
 	r.Use(middleware.Recovery(logger))
 	r.Use(middleware.RequestLogger(logger))
 	r.Use(cors.Handler(cors.Options{

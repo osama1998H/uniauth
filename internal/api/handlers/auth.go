@@ -45,7 +45,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := ptrStr(middleware.RealIPFromRequest(r))
+	ip := ptrStr(middleware.ClientIP(r))
 	ua := ptrStr(r.UserAgent())
 
 	out, err := h.authSvc.Register(r.Context(), service.RegisterInput{
@@ -93,7 +93,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := ptrStr(middleware.RealIPFromRequest(r))
+	ip := ptrStr(middleware.ClientIP(r))
 	ua := ptrStr(r.UserAgent())
 
 	pair, user, err := h.authSvc.Login(r.Context(), service.LoginInput{
@@ -138,7 +138,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := ptrStr(middleware.RealIPFromRequest(r))
+	ip := ptrStr(middleware.ClientIP(r))
 	ua := ptrStr(r.UserAgent())
 
 	pair, _, err := h.authSvc.Refresh(r.Context(), req.RefreshToken, ua, ip)
@@ -236,7 +236,7 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	ip := ptrStr(middleware.RealIPFromRequest(r))
+	ip := ptrStr(middleware.ClientIP(r))
 	ua := ptrStr(r.UserAgent())
 
 	// Always respond 200 to prevent email enumeration
