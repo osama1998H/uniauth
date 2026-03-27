@@ -7,13 +7,36 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
 	"github.com/osama1998h/uniauth/pkg/token"
 )
 
+const testJWTSecret = "supersecretkey-at-least-32-chars!!"
+
 func newTestMaker() *token.Maker {
-	return token.NewMaker("supersecretkey-at-least-32-chars!!", 15*time.Minute, 7*24*time.Hour)
+	return token.NewMaker(testJWTSecret, 15*time.Minute, 7*24*time.Hour)
+}
+
+func createLegacyUntypedToken(t *testing.T, userID, orgID uuid.UUID, expiry time.Duration) string {
+	t.Helper()
+
+	now := time.Now()
+	tokenStr := jwt.NewWithClaims(jwt.SigningMethodHS256, &token.Claims{
+		UserID:  userID,
+		OrgID:   orgID,
+		TokenID: uuid.New(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
+		},
+	})
+	signed, err := tokenStr.SignedString([]byte(testJWTSecret))
+	if err != nil {
+		t.Fatalf("sign legacy token: %v", err)
+	}
+	return signed
 }
 
 // sentinel handler to detect that the next handler was reached
@@ -48,6 +71,56 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	}
 	if !reached {
 		t.Error("next handler was not called for valid token")
+	}
+}
+
+func TestJWTAuth_RejectsRefreshToken(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.CreateRefreshToken(userID, orgID)
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	reached := false
+	handler := JWTAuth(maker, nil)(nextHandler(&reached))
+
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+	if reached {
+		t.Error("next handler should not be called for refresh token")
+	}
+}
+
+func TestJWTAuth_RejectsLegacyUntypedToken(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+	tokenStr := createLegacyUntypedToken(t, userID, orgID, 15*time.Minute)
+
+	reached := false
+	handler := JWTAuth(maker, nil)(nextHandler(&reached))
+
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+	if reached {
+		t.Error("next handler should not be called for legacy untyped token")
 	}
 }
 
@@ -116,7 +189,7 @@ func TestJWTAuth_MalformedBearer(t *testing.T) {
 }
 
 func TestJWTAuth_ExpiredToken(t *testing.T) {
-	expiredMaker := token.NewMaker("supersecretkey-at-least-32-chars!!", -time.Second, 7*24*time.Hour)
+	expiredMaker := token.NewMaker(testJWTSecret, -time.Second, 7*24*time.Hour)
 	validMaker := newTestMaker()
 
 	userID := uuid.New()
@@ -141,7 +214,7 @@ func TestJWTAuth_ExpiredToken(t *testing.T) {
 }
 
 func TestJWTAuth_WrongSecret(t *testing.T) {
-	signingMaker := token.NewMaker("supersecretkey-at-least-32-chars!!", 15*time.Minute, 7*24*time.Hour)
+	signingMaker := token.NewMaker(testJWTSecret, 15*time.Minute, 7*24*time.Hour)
 	verifyingMaker := token.NewMaker("a-totally-different-secret-key!!!!", 15*time.Minute, 7*24*time.Hour)
 
 	userID := uuid.New()

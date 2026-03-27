@@ -33,6 +33,9 @@ func TestMaker_CreateAccessToken(t *testing.T) {
 	if claims.TokenID == uuid.Nil {
 		t.Error("expected non-nil TokenID (jti)")
 	}
+	if claims.Purpose != TokenPurposeAccess {
+		t.Errorf("Purpose mismatch: got %q, want %q", claims.Purpose, TokenPurposeAccess)
+	}
 	if claims.ExpiresAt == nil {
 		t.Fatal("expected ExpiresAt to be set")
 	}
@@ -55,6 +58,9 @@ func TestMaker_CreateRefreshToken(t *testing.T) {
 	if tokenStr == "" {
 		t.Fatal("expected non-empty token string")
 	}
+	if claims.Purpose != TokenPurposeRefresh {
+		t.Errorf("Purpose mismatch: got %q, want %q", claims.Purpose, TokenPurposeRefresh)
+	}
 	wantExpiry := time.Now().Add(7 * 24 * time.Hour)
 	diff := claims.ExpiresAt.Time.Sub(wantExpiry)
 	if diff < -2*time.Second || diff > 2*time.Second {
@@ -75,7 +81,7 @@ func TestMaker_AccessAndRefreshTokensAreDifferent(t *testing.T) {
 	}
 }
 
-func TestMaker_Verify_Valid(t *testing.T) {
+func TestMaker_VerifyAccessToken_Valid(t *testing.T) {
 	maker := newTestMaker()
 	userID := uuid.New()
 	orgID := uuid.New()
@@ -85,7 +91,7 @@ func TestMaker_Verify_Valid(t *testing.T) {
 		t.Fatalf("create token: %v", err)
 	}
 
-	claims, err := maker.Verify(tokenStr)
+	claims, err := maker.VerifyAccessToken(tokenStr)
 	if err != nil {
 		t.Fatalf("unexpected error verifying valid token: %v", err)
 	}
@@ -95,9 +101,107 @@ func TestMaker_Verify_Valid(t *testing.T) {
 	if claims.OrgID != orgID {
 		t.Errorf("OrgID mismatch: got %v, want %v", claims.OrgID, orgID)
 	}
+	if claims.Purpose != TokenPurposeAccess {
+		t.Errorf("Purpose mismatch: got %q, want %q", claims.Purpose, TokenPurposeAccess)
+	}
 }
 
-func TestMaker_Verify_ExpiredToken(t *testing.T) {
+func TestMaker_VerifyAccessToken_RejectsRefreshToken(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.CreateRefreshToken(userID, orgID)
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	if _, err := maker.VerifyAccessToken(tokenStr); err == nil {
+		t.Fatal("expected access verification to reject refresh token, got nil")
+	}
+}
+
+func TestMaker_VerifyRefreshToken_Valid(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.CreateRefreshToken(userID, orgID)
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	claims, err := maker.VerifyRefreshToken(tokenStr, false)
+	if err != nil {
+		t.Fatalf("unexpected error verifying valid refresh token: %v", err)
+	}
+	if claims.UserID != userID {
+		t.Errorf("UserID mismatch: got %v, want %v", claims.UserID, userID)
+	}
+	if claims.OrgID != orgID {
+		t.Errorf("OrgID mismatch: got %v, want %v", claims.OrgID, orgID)
+	}
+	if claims.Purpose != TokenPurposeRefresh {
+		t.Errorf("Purpose mismatch: got %q, want %q", claims.Purpose, TokenPurposeRefresh)
+	}
+}
+
+func TestMaker_VerifyRefreshToken_RejectsAccessToken(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.CreateAccessToken(userID, orgID)
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	if _, err := maker.VerifyRefreshToken(tokenStr, false); err == nil {
+		t.Fatal("expected refresh verification to reject access token, got nil")
+	}
+}
+
+func TestMaker_VerifyRefreshToken_AllowsLegacyUntypedWhenConfigured(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, claims, err := maker.create(userID, orgID, 7*24*time.Hour, "")
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+	if claims.Purpose != "" {
+		t.Fatalf("expected legacy token without purpose, got %q", claims.Purpose)
+	}
+
+	if _, err := maker.VerifyRefreshToken(tokenStr, false); err == nil {
+		t.Fatal("expected refresh verification without bridge to reject legacy token, got nil")
+	}
+	gotClaims, err := maker.VerifyRefreshToken(tokenStr, true)
+	if err != nil {
+		t.Fatalf("expected refresh verification with bridge to accept legacy token: %v", err)
+	}
+	if gotClaims.Purpose != "" {
+		t.Errorf("legacy token purpose: got %q, want empty", gotClaims.Purpose)
+	}
+}
+
+func TestMaker_VerifyAccessToken_RejectsLegacyUntypedToken(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.create(userID, orgID, 15*time.Minute, "")
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	if _, err := maker.VerifyAccessToken(tokenStr); err == nil {
+		t.Fatal("expected access verification to reject legacy untyped token, got nil")
+	}
+}
+
+func TestMaker_VerifyAccessToken_ExpiredToken(t *testing.T) {
 	// Maker with a -1s access duration to create immediately-expired tokens
 	maker := NewMaker("supersecretkey-at-least-32-chars!!", -time.Second, 7*24*time.Hour)
 	userID := uuid.New()
@@ -108,13 +212,13 @@ func TestMaker_Verify_ExpiredToken(t *testing.T) {
 		t.Fatalf("create token: %v", err)
 	}
 
-	_, err = maker.Verify(tokenStr)
+	_, err = maker.VerifyAccessToken(tokenStr)
 	if err == nil {
 		t.Fatal("expected error for expired token, got nil")
 	}
 }
 
-func TestMaker_Verify_WrongSecret(t *testing.T) {
+func TestMaker_VerifyAccessToken_WrongSecret(t *testing.T) {
 	maker1 := NewMaker("supersecretkey-at-least-32-chars!!", 15*time.Minute, 7*24*time.Hour)
 	maker2 := NewMaker("a-totally-different-secret-key!!!!", 15*time.Minute, 7*24*time.Hour)
 
@@ -126,13 +230,13 @@ func TestMaker_Verify_WrongSecret(t *testing.T) {
 		t.Fatalf("create token: %v", err)
 	}
 
-	_, err = maker2.Verify(tokenStr)
+	_, err = maker2.VerifyAccessToken(tokenStr)
 	if err == nil {
 		t.Fatal("expected error when verifying with wrong secret, got nil")
 	}
 }
 
-func TestMaker_Verify_TamperedToken(t *testing.T) {
+func TestMaker_VerifyAccessToken_TamperedToken(t *testing.T) {
 	maker := newTestMaker()
 	userID := uuid.New()
 	orgID := uuid.New()
@@ -144,34 +248,34 @@ func TestMaker_Verify_TamperedToken(t *testing.T) {
 		tampered = tokenStr[:len(tokenStr)-1] + "Y"
 	}
 
-	_, err := maker.Verify(tampered)
+	_, err := maker.VerifyAccessToken(tampered)
 	if err == nil {
 		t.Fatal("expected error for tampered token, got nil")
 	}
 }
 
-func TestMaker_Verify_EmptyString(t *testing.T) {
+func TestMaker_VerifyAccessToken_EmptyString(t *testing.T) {
 	maker := newTestMaker()
-	_, err := maker.Verify("")
+	_, err := maker.VerifyAccessToken("")
 	if err == nil {
 		t.Fatal("expected error for empty token string, got nil")
 	}
 }
 
-func TestMaker_Verify_MalformedToken(t *testing.T) {
+func TestMaker_VerifyAccessToken_MalformedToken(t *testing.T) {
 	maker := newTestMaker()
-	_, err := maker.Verify("not.a.valid.jwt")
+	_, err := maker.VerifyAccessToken("not.a.valid.jwt")
 	if err == nil {
 		t.Fatal("expected error for malformed token, got nil")
 	}
 }
 
-func TestMaker_Verify_AlgorithmSubstitution(t *testing.T) {
+func TestMaker_VerifyAccessToken_AlgorithmSubstitution(t *testing.T) {
 	// Build a token whose header claims alg=none — should be rejected
 	maker := newTestMaker()
 	// Manually craft a "none" algorithm token (header.payload.empty-sig)
 	noneToken := "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJ1aWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJvaWQiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJqdGkiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6OTk5OTk5OTk5OX0."
-	_, err := maker.Verify(noneToken)
+	_, err := maker.VerifyAccessToken(noneToken)
 	if err == nil {
 		t.Fatal("expected error for 'none' algorithm token, got nil")
 	}

@@ -67,7 +67,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 // Login godoc
 // @Summary     Authenticate user
-// @Description Validates credentials and returns a JWT access token and a refresh token.
+// @Description Validates credentials and returns a JWT access token and a refresh token. Only the access token is accepted in the Authorization header.
 // @Tags        Auth
 // @Accept      json
 // @Produce     json
@@ -119,7 +119,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 // Refresh godoc
 // @Summary     Refresh access token
-// @Description Exchanges a valid refresh token for a new token pair. The old refresh token is invalidated.
+// @Description Exchanges a valid refresh token for a new token pair. Refresh tokens are not accepted as bearer tokens on protected routes.
 // @Tags        Auth
 // @Accept      json
 // @Produce     json
@@ -157,7 +157,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 // Logout godoc
 // @Summary     Logout current session
-// @Description Revokes the provided refresh token and blacklists the current access token.
+// @Description Revokes the provided refresh token and blacklists the current access token. Authorization must use an access token; the request body must contain the refresh token.
 // @Tags        Auth
 // @Accept      json
 // @Produce     json

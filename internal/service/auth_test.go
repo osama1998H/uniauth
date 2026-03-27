@@ -3,8 +3,13 @@ package service
 import (
 	"errors"
 	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"github.com/osama1998h/uniauth/internal/domain"
+	"github.com/osama1998h/uniauth/pkg/token"
 )
 
 // validatePassword and slugify are package-private functions tested here
@@ -218,4 +223,75 @@ func TestHashString(t *testing.T) {
 			t.Error("hash should not equal the plaintext")
 		}
 	})
+}
+
+func TestAuthServiceVerifyRefreshToken(t *testing.T) {
+	const testJWTSecret = "supersecretkey-at-least-32-chars!!"
+
+	maker := token.NewMaker(testJWTSecret, 15*time.Minute, 7*24*time.Hour)
+	svc := &AuthService{tokenMaker: maker}
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	t.Run("accepts typed refresh token", func(t *testing.T) {
+		tokenStr, _, err := maker.CreateRefreshToken(userID, orgID)
+		if err != nil {
+			t.Fatalf("create refresh token: %v", err)
+		}
+
+		claims, err := svc.verifyRefreshToken(tokenStr)
+		if err != nil {
+			t.Fatalf("verify refresh token: %v", err)
+		}
+		if claims.Purpose != token.TokenPurposeRefresh {
+			t.Errorf("Purpose mismatch: got %q, want %q", claims.Purpose, token.TokenPurposeRefresh)
+		}
+	})
+
+	t.Run("rejects typed access token", func(t *testing.T) {
+		tokenStr, _, err := maker.CreateAccessToken(userID, orgID)
+		if err != nil {
+			t.Fatalf("create access token: %v", err)
+		}
+
+		if _, err := svc.verifyRefreshToken(tokenStr); err == nil {
+			t.Fatal("expected access token to be rejected on refresh-only path")
+		}
+	})
+
+	t.Run("legacy untyped token only works with bridge enabled", func(t *testing.T) {
+		legacyToken := createLegacyUntypedServiceToken(t, testJWTSecret, userID, orgID, 7*24*time.Hour)
+
+		if _, err := maker.VerifyRefreshToken(legacyToken, false); err == nil {
+			t.Fatal("expected legacy token to be rejected when bridge is disabled")
+		}
+
+		claims, err := svc.verifyRefreshToken(legacyToken)
+		if err != nil {
+			t.Fatalf("expected legacy token to be accepted on refresh-only bridge: %v", err)
+		}
+		if claims.Purpose != "" {
+			t.Errorf("legacy token purpose: got %q, want empty", claims.Purpose)
+		}
+	})
+}
+
+func createLegacyUntypedServiceToken(t *testing.T, secret string, userID, orgID uuid.UUID, expiry time.Duration) string {
+	t.Helper()
+
+	now := time.Now()
+	tokenStr := jwt.NewWithClaims(jwt.SigningMethodHS256, &token.Claims{
+		UserID:  userID,
+		OrgID:   orgID,
+		TokenID: uuid.New(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
+		},
+	})
+	signed, err := tokenStr.SignedString([]byte(secret))
+	if err != nil {
+		t.Fatalf("sign legacy token: %v", err)
+	}
+	return signed
 }

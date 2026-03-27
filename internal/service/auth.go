@@ -164,7 +164,7 @@ func (s *AuthService) Login(ctx context.Context, in LoginInput) (*TokenPair, *do
 
 // Refresh exchanges a valid refresh token for a new token pair.
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgent, ipAddress *string) (*TokenPair, *domain.User, error) {
-	claims, err := s.tokenMaker.Verify(refreshToken)
+	claims, err := s.verifyRefreshToken(refreshToken)
 	if err != nil {
 		return nil, nil, domain.ErrTokenInvalid
 	}
@@ -177,10 +177,16 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgen
 	if !sess.IsValid() {
 		return nil, nil, domain.ErrTokenExpired
 	}
+	if sess.UserID != claims.UserID {
+		return nil, nil, domain.ErrTokenInvalid
+	}
 
 	user, err := s.store.GetUserByID(ctx, claims.UserID)
 	if err != nil || !user.IsActive {
 		return nil, nil, domain.ErrUnauthorized
+	}
+	if user.OrgID != claims.OrgID {
+		return nil, nil, domain.ErrTokenInvalid
 	}
 
 	// Rotate: revoke old session, issue new pair
@@ -200,13 +206,26 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgen
 // Logout revokes the session associated with the given refresh token and
 // blacklists the current access token so it is rejected on all instances.
 func (s *AuthService) Logout(ctx context.Context, refreshToken string, accessTokenID uuid.UUID, accessTokenExpiresAt time.Time) error {
+	claims, err := s.verifyRefreshToken(refreshToken)
+	if err != nil {
+		return domain.ErrTokenInvalid
+	}
+
 	tokenHash := hashString(refreshToken)
 	sess, err := s.store.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
+			s.blacklistAccessToken(ctx, accessTokenID, accessTokenExpiresAt)
 			return nil // already gone
 		}
 		return err
+	}
+	if sess.UserID != claims.UserID {
+		return domain.ErrTokenInvalid
+	}
+	if !sess.IsValid() {
+		s.blacklistAccessToken(ctx, accessTokenID, accessTokenExpiresAt)
+		return nil
 	}
 	if err := s.store.RevokeSession(ctx, sess.ID); err != nil {
 		return err
@@ -343,6 +362,10 @@ func (s *AuthService) issueTokenPair(ctx context.Context, user *domain.User, use
 		AccessTokenExpiresAt:  accessClaims.ExpiresAt.Time,
 		RefreshTokenExpiresAt: refreshClaims.ExpiresAt.Time,
 	}, nil
+}
+
+func (s *AuthService) verifyRefreshToken(refreshToken string) (*token.Claims, error) {
+	return s.tokenMaker.VerifyRefreshToken(refreshToken, true)
 }
 
 func hashString(s string) string {
