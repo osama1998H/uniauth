@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -10,16 +8,17 @@ import (
 
 	"github.com/osama1998h/uniauth/internal/api/middleware"
 	db "github.com/osama1998h/uniauth/internal/repository/postgres"
+	"github.com/osama1998h/uniauth/internal/service"
 )
 
 // WebhookHandler handles webhook management endpoints.
 type WebhookHandler struct {
-	store *db.Store
+	webhookSvc *service.WebhookService
 }
 
 // NewWebhookHandler creates a WebhookHandler.
-func NewWebhookHandler(store *db.Store) *WebhookHandler {
-	return &WebhookHandler{store: store}
+func NewWebhookHandler(webhookSvc *service.WebhookService) *WebhookHandler {
+	return &WebhookHandler{webhookSvc: webhookSvc}
 }
 
 // ListWebhooks godoc
@@ -39,7 +38,7 @@ func (h *WebhookHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hooks, err := h.store.ListWebhooksByOrg(r.Context(), orgID)
+	hooks, err := h.webhookSvc.List(r.Context(), orgID)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -54,13 +53,13 @@ func (h *WebhookHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 
 // CreateWebhook godoc
 // @Summary     Create a webhook
-// @Description Registers a new webhook endpoint. The HMAC signing secret is returned only in this response — store it securely.
+// @Description Registers a new webhook endpoint. Webhook URLs must be direct public HTTPS endpoints; localhost, private, link-local, and metadata-style targets are rejected. Redirects are not followed. The HMAC signing secret is returned only in this response — store it securely.
 // @Tags        Webhooks
 // @Accept      json
 // @Produce     json
 // @Param       body body CreateWebhookRequest true "Webhook configuration"
 // @Success     201 {object} CreateWebhookResponse
-// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     400 {object} SwaggerErrorResponse "Invalid or unsafe webhook URL"
 // @Failure     401 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
@@ -81,33 +80,27 @@ func (h *WebhookHandler) CreateWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secret, err := generateSecret()
+	out, err := h.webhookSvc.Create(r.Context(), orgID, req.URL, req.Events)
 	if err != nil {
 		handleServiceError(w, err)
 		return
 	}
 
-	wh, err := h.store.CreateWebhook(r.Context(), orgID, req.URL, req.Events, secret)
-	if err != nil {
-		handleServiceError(w, err)
-		return
-	}
-
-	resp := webhookResponse(wh)
-	resp["secret"] = secret // shown once
+	resp := webhookResponse(out.Webhook)
+	resp["secret"] = out.Secret // shown once
 	writeJSON(w, http.StatusCreated, resp)
 }
 
 // UpdateWebhook godoc
 // @Summary     Update a webhook
-// @Description Updates the URL, event subscriptions, and/or active status of a webhook.
+// @Description Updates the URL, event subscriptions, and/or active status of a webhook. If a URL is provided, it must be a direct public HTTPS endpoint and redirects will not be followed during delivery.
 // @Tags        Webhooks
 // @Accept      json
 // @Produce     json
 // @Param       id   path string              true "Webhook UUID"
 // @Param       body body UpdateWebhookRequest true "Fields to update"
 // @Success     200 {object} WebhookView
-// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     400 {object} SwaggerErrorResponse "Invalid or unsafe webhook URL"
 // @Failure     401 {object} SwaggerErrorResponse
 // @Failure     404 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
@@ -131,7 +124,7 @@ func (h *WebhookHandler) UpdateWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wh, err := h.store.UpdateWebhook(r.Context(), id, orgID, req.URL, req.Events, req.IsActive)
+	wh, err := h.webhookSvc.Update(r.Context(), id, orgID, req.URL, req.Events, req.IsActive)
 	if err != nil || wh == nil {
 		handleServiceError(w, err)
 		return
@@ -160,7 +153,7 @@ func (h *WebhookHandler) DeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	orgID, _ := middleware.GetOrgID(r.Context())
 
-	if err := h.store.DeleteWebhook(r.Context(), id, orgID); err != nil {
+	if err := h.webhookSvc.Delete(r.Context(), id, orgID); err != nil {
 		handleServiceError(w, err)
 		return
 	}
@@ -176,12 +169,4 @@ func webhookResponse(wh *db.Webhook) map[string]any {
 		"is_active":  wh.IsActive,
 		"created_at": wh.CreatedAt,
 	}
-}
-
-func generateSecret() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return "whsec_" + hex.EncodeToString(b), nil
 }

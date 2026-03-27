@@ -178,12 +178,14 @@ type CreateAPIKeyRequest struct {
 }
 
 // CreateWebhookRequest is the request body for POST /api/v1/webhooks.
+// URL must be a direct public HTTPS endpoint.
 type CreateWebhookRequest struct {
 	URL    string   `json:"url"    example:"https://app.example.com/hooks"`
 	Events []string `json:"events" example:"user.created,user.deleted"`
 }
 
 // UpdateWebhookRequest is the request body for PUT /api/v1/webhooks/{id}.
+// If URL is provided, it must be a direct public HTTPS endpoint.
 type UpdateWebhookRequest struct {
 	URL      *string  `json:"url"       example:"https://app.example.com/hooks/v2"`
 	Events   []string `json:"events"    example:"user.created"`

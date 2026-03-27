@@ -45,7 +45,7 @@ func NewRouter(
 	roleH := handlers.NewRoleHandler(rbacSvc)
 	apiKeyH := handlers.NewAPIKeyHandler(apiKeySvc)
 	auditH := handlers.NewAuditHandler(store)
-	webhookH := handlers.NewWebhookHandler(store)
+	webhookH := handlers.NewWebhookHandler(webhookSvc)
 
 	// --- Router ---
 	r := chi.NewRouter()
