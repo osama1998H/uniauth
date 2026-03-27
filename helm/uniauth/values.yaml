@@ -16,9 +16,14 @@ config:
   refreshTokenDuration: "168h"
   rateLimitPerMinute: "60"
   corsOrigins: "*"
+  resetTokenDuration: "1h"
+  dbMaxOpenConns: "25"
+  dbMaxIdleConns: "5"
+  # Used in password reset email links — set to your public URL
+  appBaseURL: "https://example.com"
   # Optional SMTP configuration (leave empty to print emails to stdout)
   smtpHost: ""
-  smtpPort: ""
+  smtpPort: "587"
   smtpFrom: ""
 
 # Sensitive credentials — stored in a Kubernetes Secret

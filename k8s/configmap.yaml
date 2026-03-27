@@ -13,7 +13,12 @@ data:
   REFRESH_TOKEN_DURATION: "168h"
   RATE_LIMIT_PER_MINUTE: "60"
   CORS_ORIGINS: "*"
+  RESET_TOKEN_DURATION: "1h"
+  DB_MAX_OPEN_CONNS: "25"
+  DB_MAX_IDLE_CONNS: "5"
+  # Used in password reset email links — set to your public URL
+  APP_BASE_URL: "https://auth.example.com"
   # Uncomment and set SMTP values to enable email delivery
   # SMTP_HOST: "smtp.example.com"
-  # SMTP_PORT: "587"
+  SMTP_PORT: "587"
   # SMTP_FROM: "noreply@example.com"

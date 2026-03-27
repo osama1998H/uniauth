@@ -12,6 +12,11 @@ data:
   REFRESH_TOKEN_DURATION: {{ .Values.config.refreshTokenDuration | quote }}
   RATE_LIMIT_PER_MINUTE: {{ .Values.config.rateLimitPerMinute | quote }}
   CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+  RESET_TOKEN_DURATION: {{ .Values.config.resetTokenDuration | quote }}
+  DB_MAX_OPEN_CONNS: {{ .Values.config.dbMaxOpenConns | quote }}
+  DB_MAX_IDLE_CONNS: {{ .Values.config.dbMaxIdleConns | quote }}
+  APP_BASE_URL: {{ .Values.config.appBaseURL | quote }}
+  SMTP_PORT: {{ .Values.config.smtpPort | quote }}
   {{- if .Values.config.smtpHost }}
   SMTP_HOST: {{ .Values.config.smtpHost | quote }}
   {{- end }}
