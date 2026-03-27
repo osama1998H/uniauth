@@ -41,12 +41,15 @@ func JWTAuth(maker *token.Maker, c *cache.Cache) func(next http.Handler) http.Ha
 				return
 			}
 
-			// Check Redis blacklist. If Redis is unavailable we allow the request
-			// (graceful degradation) — the same pattern used by the rate limiter.
-			blacklisted, err := c.IsTokenBlacklisted(r.Context(), claims.TokenID.String())
-			if err == nil && blacklisted {
-				writeUnauthorized(w, "token has been revoked")
-				return
+			// Check Redis blacklist. If the cache is nil (e.g. in tests) or Redis
+			// is unavailable, allow the request (graceful degradation — same
+			// pattern used by the rate limiter).
+			if c != nil {
+				blacklisted, err := c.IsTokenBlacklisted(r.Context(), claims.TokenID.String())
+				if err == nil && blacklisted {
+					writeUnauthorized(w, "token has been revoked")
+					return
+				}
 			}
 
 			ctx := context.WithValue(r.Context(), ContextKeyUserID, claims.UserID)
