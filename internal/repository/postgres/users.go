@@ -21,10 +21,10 @@ func (s *Store) CreateUser(ctx context.Context, orgID uuid.UUID, email, hashedPa
 	return scanUser(row)
 }
 
-func (s *Store) GetUserByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (s *Store) GetUserByID(ctx context.Context, orgID, id uuid.UUID) (*domain.User, error) {
 	row := s.pool.QueryRow(ctx,
 		`SELECT id, org_id, email, hashed_password, full_name, is_active, is_superuser, email_verified_at, last_login_at, created_at, updated_at
-		 FROM users WHERE id = $1`, id,
+		 FROM users WHERE org_id = $1 AND id = $2`, orgID, id,
 	)
 	u, err := scanUser(row)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -58,15 +58,15 @@ func (s *Store) ListUsersByOrg(ctx context.Context, orgID uuid.UUID, limit, offs
 	return collectUsers(rows)
 }
 
-func (s *Store) UpdateUser(ctx context.Context, id uuid.UUID, fullName, email *string) (*domain.User, error) {
+func (s *Store) UpdateUser(ctx context.Context, orgID, id uuid.UUID, fullName, email *string) (*domain.User, error) {
 	row := s.pool.QueryRow(ctx,
 		`UPDATE users
-		 SET full_name  = COALESCE($2, full_name),
-		     email      = COALESCE($3, email),
+		 SET full_name  = COALESCE($3, full_name),
+		     email      = COALESCE($4, email),
 		     updated_at = now()
-		 WHERE id = $1
+		 WHERE org_id = $1 AND id = $2
 		 RETURNING id, org_id, email, hashed_password, full_name, is_active, is_superuser, email_verified_at, last_login_at, created_at, updated_at`,
-		id, fullName, email,
+		orgID, id, fullName, email,
 	)
 	u, err := scanUser(row)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -89,10 +89,18 @@ func (s *Store) UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-func (s *Store) DeactivateUser(ctx context.Context, id uuid.UUID) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE users SET is_active = false, updated_at = now() WHERE id = $1`, id,
-	)
+func (s *Store) DeactivateUser(ctx context.Context, orgID, id uuid.UUID) error {
+	var userID uuid.UUID
+	err := s.pool.QueryRow(ctx,
+		`UPDATE users
+		 SET is_active = false, updated_at = now()
+		 WHERE org_id = $1 AND id = $2
+		 RETURNING id`,
+		orgID, id,
+	).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrNotFound
+	}
 	return err
 }
 

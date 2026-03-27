@@ -1,0 +1,169 @@
+package db_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/osama1998h/uniauth/internal/domain"
+	"github.com/osama1998h/uniauth/internal/testutil"
+)
+
+func TestStoreUserTenantScoping(t *testing.T) {
+	store := testutil.RequireTestStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	orgA := testutil.CreateOrganization(t, store, "users-org-a")
+	orgB := testutil.CreateOrganization(t, store, "users-org-b")
+	userA := testutil.CreateUser(t, store, orgA.ID, "user-a")
+	userB := testutil.CreateUser(t, store, orgB.ID, "user-b")
+
+	t.Run("GetUserByID only returns same-org users", func(t *testing.T) {
+		got, err := store.GetUserByID(ctx, orgA.ID, userA.ID)
+		if err != nil {
+			t.Fatalf("get scoped user: %v", err)
+		}
+		if got.ID != userA.ID {
+			t.Fatalf("got user %s, want %s", got.ID, userA.ID)
+		}
+
+		_, err = store.GetUserByID(ctx, orgA.ID, userB.ID)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound for foreign-org user, got %v", err)
+		}
+	})
+
+	t.Run("UpdateUser only updates same-org users", func(t *testing.T) {
+		fullName := "Updated User A"
+		email := "updated-user-a@example.com"
+
+		updated, err := store.UpdateUser(ctx, orgA.ID, userA.ID, &fullName, &email)
+		if err != nil {
+			t.Fatalf("update scoped user: %v", err)
+		}
+		if updated.FullName == nil || *updated.FullName != fullName {
+			t.Fatalf("full name = %v, want %q", updated.FullName, fullName)
+		}
+		if updated.Email != email {
+			t.Fatalf("email = %q, want %q", updated.Email, email)
+		}
+
+		_, err = store.UpdateUser(ctx, orgA.ID, userB.ID, &fullName, &email)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound for foreign-org update, got %v", err)
+		}
+	})
+
+	t.Run("DeactivateUser only deactivates same-org users", func(t *testing.T) {
+		activeUser := testutil.CreateUser(t, store, orgA.ID, "active-user")
+		foreignUser := testutil.CreateUser(t, store, orgB.ID, "foreign-user")
+
+		if err := store.DeactivateUser(ctx, orgA.ID, activeUser.ID); err != nil {
+			t.Fatalf("deactivate scoped user: %v", err)
+		}
+
+		got, err := store.GetUserByID(ctx, orgA.ID, activeUser.ID)
+		if err != nil {
+			t.Fatalf("get deactivated user: %v", err)
+		}
+		if got.IsActive {
+			t.Fatal("expected user to be inactive after scoped deactivation")
+		}
+
+		err = store.DeactivateUser(ctx, orgA.ID, foreignUser.ID)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound for foreign-org deactivate, got %v", err)
+		}
+	})
+}
+
+func TestStoreRoleTenantScoping(t *testing.T) {
+	store := testutil.RequireTestStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	orgA := testutil.CreateOrganization(t, store, "roles-org-a")
+	orgB := testutil.CreateOrganization(t, store, "roles-org-b")
+	roleA := testutil.CreateRole(t, store, orgA.ID, "role-a")
+	roleB := testutil.CreateRole(t, store, orgB.ID, "role-b")
+
+	t.Run("GetRoleByID only returns same-org roles", func(t *testing.T) {
+		got, err := store.GetRoleByID(ctx, orgA.ID, roleA.ID)
+		if err != nil {
+			t.Fatalf("get scoped role: %v", err)
+		}
+		if got.ID != roleA.ID {
+			t.Fatalf("got role %s, want %s", got.ID, roleA.ID)
+		}
+
+		_, err = store.GetRoleByID(ctx, orgA.ID, roleB.ID)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound for foreign-org role, got %v", err)
+		}
+	})
+
+	t.Run("UpdateRole only updates same-org roles", func(t *testing.T) {
+		description := "Updated role description"
+		updated, err := store.UpdateRole(ctx, orgA.ID, roleA.ID, "updated-role-a", &description)
+		if err != nil {
+			t.Fatalf("update scoped role: %v", err)
+		}
+		if updated.Name != "updated-role-a" {
+			t.Fatalf("role name = %q, want %q", updated.Name, "updated-role-a")
+		}
+
+		_, err = store.UpdateRole(ctx, orgA.ID, roleB.ID, "blocked-role", &description)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound for foreign-org role update, got %v", err)
+		}
+	})
+
+	t.Run("DeleteRole only deletes same-org roles", func(t *testing.T) {
+		deletableRole := testutil.CreateRole(t, store, orgA.ID, "deletable-role")
+		foreignRole := testutil.CreateRole(t, store, orgB.ID, "foreign-role")
+
+		if err := store.DeleteRole(ctx, orgA.ID, deletableRole.ID); err != nil {
+			t.Fatalf("delete scoped role: %v", err)
+		}
+
+		_, err := store.GetRoleByID(ctx, orgA.ID, deletableRole.ID)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected deleted role to be missing, got %v", err)
+		}
+
+		err = store.DeleteRole(ctx, orgA.ID, foreignRole.ID)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound for foreign-org role delete, got %v", err)
+		}
+	})
+}
+
+func TestStoreDeactivateUserReturnsNotFoundForMissingOrgMatch(t *testing.T) {
+	store := testutil.RequireTestStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	org := testutil.CreateOrganization(t, store, "missing-user-org")
+
+	err := store.DeactivateUser(ctx, org.ID, uuid.New())
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for missing user, got %v", err)
+	}
+}
+
+func TestStoreDeleteRoleReturnsNotFoundForMissingOrgMatch(t *testing.T) {
+	store := testutil.RequireTestStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	org := testutil.CreateOrganization(t, store, "missing-role-org")
+
+	err := store.DeleteRole(ctx, org.ID, uuid.New())
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for missing role, got %v", err)
+	}
+}

@@ -654,7 +654,7 @@ paths:
       consumes:
       - application/json
       description: Validates credentials and returns a JWT access token and a refresh
-        token.
+        token. Only the access token is accepted in the Authorization header.
       parameters:
       - description: Login credentials
         in: body
@@ -693,7 +693,8 @@ paths:
       consumes:
       - application/json
       description: Revokes the provided refresh token and blacklists the current access
-        token.
+        token. Authorization must use an access token; the request body must contain
+        the refresh token.
       parameters:
       - description: Refresh token to revoke
         in: body
@@ -851,8 +852,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Exchanges a valid refresh token for a new token pair. The old refresh
-        token is invalidated.
+      description: Exchanges a valid refresh token for a new token pair. Refresh tokens
+        are not accepted as bearer tokens on protected routes.
       parameters:
       - description: Refresh token
         in: body

@@ -127,6 +127,11 @@ func (h *RoleHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 // @Security    BearerAuth
 // @Router      /api/v1/roles/{id} [put]
 func (h *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	roleID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid role id")
@@ -142,7 +147,7 @@ func (h *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role, err := h.rbacSvc.UpdateRole(r.Context(), roleID, req.Name, req.Description)
+	role, err := h.rbacSvc.UpdateRole(r.Context(), orgID, roleID, req.Name, req.Description)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -172,7 +177,7 @@ func (h *RoleHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 	actorID, _ := middleware.GetUserID(r.Context())
 	orgID, _ := middleware.GetOrgID(r.Context())
 
-	if err := h.rbacSvc.DeleteRole(r.Context(), roleID, actorID, orgID); err != nil {
+	if err := h.rbacSvc.DeleteRole(r.Context(), orgID, roleID, actorID); err != nil {
 		handleServiceError(w, err)
 		return
 	}
@@ -195,6 +200,11 @@ func (h *RoleHandler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 // @Security    BearerAuth
 // @Router      /api/v1/roles/{id}/permissions [post]
 func (h *RoleHandler) AssignPermissions(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	roleID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid role id")
@@ -209,7 +219,7 @@ func (h *RoleHandler) AssignPermissions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.rbacSvc.AssignPermissions(r.Context(), roleID, req.Permissions); err != nil {
+	if err := h.rbacSvc.AssignPermissions(r.Context(), orgID, roleID, req.Permissions); err != nil {
 		handleServiceError(w, err)
 		return
 	}
@@ -248,7 +258,7 @@ func (h *RoleHandler) AssignRoleToUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.rbacSvc.AssignRoleToUser(r.Context(), targetUserID, req.RoleID, actorID, orgID); err != nil {
+	if err := h.rbacSvc.AssignRoleToUser(r.Context(), orgID, targetUserID, req.RoleID, actorID); err != nil {
 		handleServiceError(w, err)
 		return
 	}

@@ -37,8 +37,13 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
-	user, err := h.userSvc.GetByID(r.Context(), userID)
+	user, err := h.userSvc.GetByID(r.Context(), orgID, userID)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -67,6 +72,11 @@ func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	var req struct {
 		FullName *string `json:"full_name"`
@@ -77,7 +87,7 @@ func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userSvc.UpdateProfile(r.Context(), userID, service.UpdateProfileInput{
+	user, err := h.userSvc.UpdateProfile(r.Context(), orgID, userID, service.UpdateProfileInput{
 		FullName: req.FullName,
 		Email:    req.Email,
 	})
@@ -141,13 +151,18 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 // @Security    BearerAuth
 // @Router      /api/v1/users/{id} [get]
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
 
-	user, err := h.userSvc.GetByID(r.Context(), id)
+	user, err := h.userSvc.GetByID(r.Context(), orgID, id)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -175,6 +190,11 @@ func (h *UserHandler) DeactivateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	targetID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -182,7 +202,7 @@ func (h *UserHandler) DeactivateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.userSvc.Deactivate(r.Context(), actorID, targetID); err != nil {
+	if err := h.userSvc.Deactivate(r.Context(), orgID, actorID, targetID); err != nil {
 		handleServiceError(w, err)
 		return
 	}

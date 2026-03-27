@@ -28,31 +28,31 @@ func (s *RBACService) CreateRole(ctx context.Context, orgID uuid.UUID, name stri
 	}
 	s.auditSvc.Log(&domain.AuditLog{
 		OrgID: &orgID, UserID: &actorID,
-		Action: domain.AuditActionRoleCreated,
+		Action:       domain.AuditActionRoleCreated,
 		ResourceType: strPtr("role"), ResourceID: strPtr(role.ID.String()),
 	})
 	return role, nil
 }
 
-func (s *RBACService) GetRole(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
-	return s.store.GetRoleByID(ctx, id)
+func (s *RBACService) GetRole(ctx context.Context, orgID, id uuid.UUID) (*domain.Role, error) {
+	return s.store.GetRoleByID(ctx, orgID, id)
 }
 
 func (s *RBACService) ListRoles(ctx context.Context, orgID uuid.UUID) ([]*domain.Role, error) {
 	return s.store.ListRolesByOrg(ctx, orgID)
 }
 
-func (s *RBACService) UpdateRole(ctx context.Context, id uuid.UUID, name string, description *string) (*domain.Role, error) {
-	return s.store.UpdateRole(ctx, id, name, description)
+func (s *RBACService) UpdateRole(ctx context.Context, orgID, id uuid.UUID, name string, description *string) (*domain.Role, error) {
+	return s.store.UpdateRole(ctx, orgID, id, name, description)
 }
 
-func (s *RBACService) DeleteRole(ctx context.Context, id uuid.UUID, actorID, orgID uuid.UUID) error {
-	if err := s.store.DeleteRole(ctx, id); err != nil {
+func (s *RBACService) DeleteRole(ctx context.Context, orgID, id, actorID uuid.UUID) error {
+	if err := s.store.DeleteRole(ctx, orgID, id); err != nil {
 		return fmt.Errorf("delete role: %w", err)
 	}
 	s.auditSvc.Log(&domain.AuditLog{
 		OrgID: &orgID, UserID: &actorID,
-		Action: domain.AuditActionRoleDeleted,
+		Action:       domain.AuditActionRoleDeleted,
 		ResourceType: strPtr("role"), ResourceID: strPtr(id.String()),
 	})
 	return nil
@@ -62,7 +62,10 @@ func (s *RBACService) ListPermissions(ctx context.Context) ([]*domain.Permission
 	return s.store.ListPermissions(ctx)
 }
 
-func (s *RBACService) AssignPermissions(ctx context.Context, roleID uuid.UUID, permissionNames []string) error {
+func (s *RBACService) AssignPermissions(ctx context.Context, orgID, roleID uuid.UUID, permissionNames []string) error {
+	if _, err := s.store.GetRoleByID(ctx, orgID, roleID); err != nil {
+		return fmt.Errorf("get role: %w", err)
+	}
 	for _, name := range permissionNames {
 		p, err := s.store.GetPermissionByName(ctx, name)
 		if err != nil {
@@ -75,13 +78,19 @@ func (s *RBACService) AssignPermissions(ctx context.Context, roleID uuid.UUID, p
 	return nil
 }
 
-func (s *RBACService) AssignRoleToUser(ctx context.Context, userID, roleID uuid.UUID, actorID, orgID uuid.UUID) error {
+func (s *RBACService) AssignRoleToUser(ctx context.Context, orgID, userID, roleID, actorID uuid.UUID) error {
+	if _, err := s.store.GetUserByID(ctx, orgID, userID); err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+	if _, err := s.store.GetRoleByID(ctx, orgID, roleID); err != nil {
+		return fmt.Errorf("get role: %w", err)
+	}
 	if err := s.store.AssignRoleToUser(ctx, userID, roleID); err != nil {
 		return fmt.Errorf("assign role: %w", err)
 	}
 	s.auditSvc.Log(&domain.AuditLog{
 		OrgID: &orgID, UserID: &actorID,
-		Action: domain.AuditActionRoleAssigned,
+		Action:       domain.AuditActionRoleAssigned,
 		ResourceType: strPtr("user"), ResourceID: strPtr(userID.String()),
 		Metadata: map[string]any{"role_id": roleID},
 	})

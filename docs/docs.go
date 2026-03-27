@@ -250,7 +250,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/login": {
             "post": {
-                "description": "Validates credentials and returns a JWT access token and a refresh token.",
+                "description": "Validates credentials and returns a JWT access token and a refresh token. Only the access token is accepted in the Authorization header.",
                 "consumes": [
                     "application/json"
                 ],
@@ -313,7 +313,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Revokes the provided refresh token and blacklists the current access token.",
+                "description": "Revokes the provided refresh token and blacklists the current access token. Authorization must use an access token; the request body must contain the refresh token.",
                 "consumes": [
                     "application/json"
                 ],
@@ -551,7 +551,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/refresh": {
             "post": {
-                "description": "Exchanges a valid refresh token for a new token pair. The old refresh token is invalidated.",
+                "description": "Exchanges a valid refresh token for a new token pair. Refresh tokens are not accepted as bearer tokens on protected routes.",
                 "consumes": [
                     "application/json"
                 ],
