@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -86,5 +85,5 @@ func (w *WebhookService) deliver(url, secret, event string, payload any) {
 func computeHMAC(secret string, body []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(body)
-	return fmt.Sprintf("%s", hex.EncodeToString(mac.Sum(nil)))
+	return hex.EncodeToString(mac.Sum(nil))
 }
