@@ -153,15 +153,6 @@ docker run -d \
   ghcr.io/osama1998h/uniauth:latest
 ```
 
-### Kubernetes (Helm)
-
-```bash
-helm install uniauth ./deployments/helm/uniauth \
-  --set database.url="postgres://..." \
-  --set redis.url="redis://..." \
-  --set auth.jwtSecret="your-secret"
-```
-
 ## API Endpoints
 
 | Method | Path | Auth | Description |
