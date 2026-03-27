@@ -1,0 +1,29 @@
+# Minikube-specific overrides for local validation.
+
+replicaCount: 1
+
+image:
+  repository: uniauth
+  tag: dev
+  pullPolicy: IfNotPresent
+
+config:
+  environment: development
+  appBaseURL: http://127.0.0.1:8080
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+
+secrets:
+  create: false
+  existingSecret: uniauth-env
+
+hpa:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+

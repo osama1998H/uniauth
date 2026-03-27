@@ -16,7 +16,6 @@ data:
   DB_MAX_OPEN_CONNS: {{ .Values.config.dbMaxOpenConns | quote }}
   DB_MAX_IDLE_CONNS: {{ .Values.config.dbMaxIdleConns | quote }}
   APP_BASE_URL: {{ .Values.config.appBaseURL | quote }}
-  SMTP_PORT: {{ .Values.config.smtpPort | quote }}
   {{- if .Values.config.smtpHost }}
   SMTP_HOST: {{ .Values.config.smtpHost | quote }}
   {{- end }}
