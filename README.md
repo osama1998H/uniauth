@@ -37,6 +37,8 @@ Server is running at `http://localhost:8080`. MailHog UI at `http://localhost:80
 
 ### Authentication
 
+Protected routes accept `Authorization: Bearer <access-token>` only. Refresh tokens are reserved for `/api/v1/auth/refresh` and the logout request body.
+
 ```bash
 # Register a new organization + admin user
 curl -X POST http://localhost:8080/api/v1/auth/register \
@@ -48,6 +50,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"org_slug":"acme-corp","email":"admin@acme.com","password":"securepass123"}'
 # => { "access_token": "...", "refresh_token": "..." }
+# Use only the access token in the Authorization header on protected routes.
 
 # Refresh tokens
 curl -X POST http://localhost:8080/api/v1/auth/refresh \

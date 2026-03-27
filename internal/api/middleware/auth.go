@@ -35,7 +35,7 @@ func JWTAuth(maker *token.Maker, c *cache.Cache) func(next http.Handler) http.Ha
 				return
 			}
 
-			claims, err := maker.Verify(tokenStr)
+			claims, err := maker.VerifyAccessToken(tokenStr)
 			if err != nil {
 				writeUnauthorized(w, "invalid or expired token")
 				return
