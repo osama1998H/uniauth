@@ -176,7 +176,7 @@ func TestRouterAllowsGrantedPermissions(t *testing.T) {
 			permission: domain.PermissionAPIKeysDelete,
 			method:     http.MethodDelete,
 			path: func(t *testing.T, ctx context.Context, store *db.Store, orgID uuid.UUID) string {
-				key, err := store.CreateAPIKey(ctx, orgID, "router-delete-key", "uni", uuid.NewString(), nil, nil)
+				key, err := store.CreateAPIKey(ctx, orgID, "router-delete-key", "uni", uuid.NewString(), []string{}, nil)
 				if err != nil {
 					t.Fatalf("CreateAPIKey() error = %v", err)
 				}

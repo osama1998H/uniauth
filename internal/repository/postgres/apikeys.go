@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -13,6 +14,10 @@ import (
 )
 
 func (s *Store) CreateAPIKey(ctx context.Context, orgID uuid.UUID, name, keyPrefix, keyHash string, scopes []string, expiresAt *time.Time) (*domain.APIKey, error) {
+	if scopes == nil {
+		scopes = []string{}
+	}
+
 	row := s.pool.QueryRow(ctx,
 		`INSERT INTO api_keys (org_id, name, key_prefix, key_hash, scopes, expires_at)
 		 VALUES ($1, $2, $3, $4, $5, $6)
@@ -69,16 +74,28 @@ func (s *Store) UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID) error {
 
 func scanAPIKey(row pgx.Row) (*domain.APIKey, error) {
 	k := &domain.APIKey{}
-	if err := row.Scan(&k.ID, &k.OrgID, &k.Name, &k.KeyPrefix, &k.KeyHash, &k.Scopes, &k.ExpiresAt, &k.LastUsedAt, &k.RevokedAt, &k.CreatedAt); err != nil {
+	var expiresAt sql.NullTime
+	var lastUsedAt sql.NullTime
+	var revokedAt sql.NullTime
+	if err := row.Scan(&k.ID, &k.OrgID, &k.Name, &k.KeyPrefix, &k.KeyHash, &k.Scopes, &expiresAt, &lastUsedAt, &revokedAt, &k.CreatedAt); err != nil {
 		return nil, fmt.Errorf("scan api key: %w", err)
 	}
+	k.ExpiresAt = nullTimePtr(expiresAt)
+	k.LastUsedAt = nullTimePtr(lastUsedAt)
+	k.RevokedAt = nullTimePtr(revokedAt)
 	return k, nil
 }
 
 func scanAPIKeyRow(rows pgx.Rows) (*domain.APIKey, error) {
 	k := &domain.APIKey{}
-	if err := rows.Scan(&k.ID, &k.OrgID, &k.Name, &k.KeyPrefix, &k.KeyHash, &k.Scopes, &k.ExpiresAt, &k.LastUsedAt, &k.RevokedAt, &k.CreatedAt); err != nil {
+	var expiresAt sql.NullTime
+	var lastUsedAt sql.NullTime
+	var revokedAt sql.NullTime
+	if err := rows.Scan(&k.ID, &k.OrgID, &k.Name, &k.KeyPrefix, &k.KeyHash, &k.Scopes, &expiresAt, &lastUsedAt, &revokedAt, &k.CreatedAt); err != nil {
 		return nil, fmt.Errorf("scan api key row: %w", err)
 	}
+	k.ExpiresAt = nullTimePtr(expiresAt)
+	k.LastUsedAt = nullTimePtr(lastUsedAt)
+	k.RevokedAt = nullTimePtr(revokedAt)
 	return k, nil
 }
