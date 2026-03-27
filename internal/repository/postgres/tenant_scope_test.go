@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/osama1998h/uniauth/internal/domain"
 	"github.com/osama1998h/uniauth/internal/testutil"
@@ -166,4 +167,59 @@ func TestStoreDeleteRoleReturnsNotFoundForMissingOrgMatch(t *testing.T) {
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound for missing role, got %v", err)
 	}
+}
+
+func TestStoreUserRoleTenantIntegrity(t *testing.T) {
+	store := testutil.RequireTestStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	orgA := testutil.CreateOrganization(t, store, "user-roles-org-a")
+	orgB := testutil.CreateOrganization(t, store, "user-roles-org-b")
+	userA := testutil.CreateUser(t, store, orgA.ID, "user-roles-user-a")
+	userB := testutil.CreateUser(t, store, orgB.ID, "user-roles-user-b")
+	roleA := testutil.CreateRole(t, store, orgA.ID, "user-roles-role-a")
+	roleB := testutil.CreateRole(t, store, orgB.ID, "user-roles-role-b")
+
+	t.Run("AssignRoleToUser inserts same-org links", func(t *testing.T) {
+		if err := store.AssignRoleToUser(ctx, orgA.ID, userA.ID, roleA.ID); err != nil {
+			t.Fatalf("assign scoped role: %v", err)
+		}
+
+		roles, err := store.ListRolesByUser(ctx, userA.ID)
+		if err != nil {
+			t.Fatalf("list roles by user: %v", err)
+		}
+		if len(roles) != 1 {
+			t.Fatalf("expected 1 role for user, got %d", len(roles))
+		}
+		if roles[0].ID != roleA.ID {
+			t.Fatalf("role id = %s, want %s", roles[0].ID, roleA.ID)
+		}
+	})
+
+	t.Run("AssignRoleToUser rejects foreign-org user", func(t *testing.T) {
+		err := store.AssignRoleToUser(ctx, orgA.ID, userB.ID, roleA.ID)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound for foreign-org user, got %v", err)
+		}
+	})
+
+	t.Run("AssignRoleToUser rejects foreign-org role", func(t *testing.T) {
+		err := store.AssignRoleToUser(ctx, orgA.ID, userA.ID, roleB.ID)
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("expected ErrNotFound for foreign-org role, got %v", err)
+		}
+	})
+
+	t.Run("raw SQL insert rejects mismatched org tuples", func(t *testing.T) {
+		_, err := store.Pool().Exec(ctx,
+			`INSERT INTO user_roles (org_id, user_id, role_id) VALUES ($1, $2, $3)`,
+			orgA.ID, userB.ID, roleA.ID,
+		)
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != "23503" {
+			t.Fatalf("expected foreign-key violation for mismatched org tuple, got %v", err)
+		}
+	})
 }
