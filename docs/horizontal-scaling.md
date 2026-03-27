@@ -168,6 +168,14 @@ Rate limiting uses a Redis sliding-window counter keyed on the client IP address
 
 Default: 60 requests per IP per minute (configurable via `RATE_LIMIT_PER_MINUTE`).
 
+Forwarded client IP headers are trusted only when the immediate peer IP matches `TRUSTED_PROXY_CIDRS`. If `TRUSTED_PROXY_CIDRS` is empty, UniAuth fails closed and uses the direct socket peer IP for rate limiting and audit trails.
+
+Example for a local reverse proxy:
+
+```
+TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
+```
+
 ---
 
 ## Webhook Delivery
@@ -200,6 +208,7 @@ Per-instance variables (can differ):
 |----------|-------|
 | `PORT` | Each instance may listen on a different port if not using Kubernetes |
 | `ENVIRONMENT` | Can differ between staging and production |
+| `TRUSTED_PROXY_CIDRS` | Set this when requests arrive through a trusted proxy; empty means forwarded headers are ignored |
 
 ---
 
@@ -210,6 +219,7 @@ Before going to production with multiple instances:
 - [ ] External PostgreSQL with connection pooling (e.g. PgBouncer)
 - [ ] External Redis with persistence or Sentinel for HA
 - [ ] `JWT_SECRET` set identically on all instances via a secret manager
+- [ ] `TRUSTED_PROXY_CIDRS` set to the ingress/load balancer CIDRs if requests pass through a trusted proxy
 - [ ] `DATABASE_URL` and `REDIS_URL` pointing at the shared services
 - [ ] Migrations run exactly once before app rollout (`make migrate-up`)
 - [ ] Load balancer health check configured to use `GET /ready`

@@ -18,6 +18,7 @@ func RequestLogger(logger *slog.Logger) func(next http.Handler) http.Handler {
 			logger.Info("request",
 				"method", r.Method,
 				"path", r.URL.Path,
+				"client_ip", ClientIP(r),
 				"status", ww.Status(),
 				"duration_ms", time.Since(start).Milliseconds(),
 				"request_id", middleware.GetReqID(r.Context()),

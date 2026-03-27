@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -17,9 +19,11 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port        int    `mapstructure:"PORT"`
-	Environment string `mapstructure:"ENVIRONMENT"` // development | production
-	CORSOrigins string `mapstructure:"CORS_ORIGINS"` // comma-separated allowed origins, * for all
+	Port               int          `mapstructure:"PORT"`
+	Environment        string       `mapstructure:"ENVIRONMENT"`         // development | production
+	CORSOrigins        string       `mapstructure:"CORS_ORIGINS"`        // comma-separated allowed origins, * for all
+	TrustedProxyCIDRs  string       `mapstructure:"TRUSTED_PROXY_CIDRS"` // comma-separated CIDRs or IPs
+	TrustedProxyRanges []*net.IPNet `mapstructure:"-"`
 }
 
 type DatabaseConfig struct {
@@ -67,6 +71,7 @@ func Load() (*Config, error) {
 	v.SetDefault("SMTP_PORT", 587)
 	v.SetDefault("APP_BASE_URL", "http://localhost:8080")
 	v.SetDefault("REDIS_URL", "redis://localhost:6379/0")
+	v.SetDefault("TRUSTED_PROXY_CIDRS", "")
 
 	// Load from .env file if present (ignored if missing)
 	v.SetConfigFile(".env")
@@ -76,12 +81,19 @@ func Load() (*Config, error) {
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
+	trustedProxyRanges, err := parseTrustedProxyCIDRs(v.GetString("TRUSTED_PROXY_CIDRS"))
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &Config{}
 
 	cfg.Server = ServerConfig{
-		Port:        v.GetInt("PORT"),
-		Environment: v.GetString("ENVIRONMENT"),
-		CORSOrigins: v.GetString("CORS_ORIGINS"),
+		Port:               v.GetInt("PORT"),
+		Environment:        v.GetString("ENVIRONMENT"),
+		CORSOrigins:        v.GetString("CORS_ORIGINS"),
+		TrustedProxyCIDRs:  v.GetString("TRUSTED_PROXY_CIDRS"),
+		TrustedProxyRanges: trustedProxyRanges,
 	}
 	cfg.Database = DatabaseConfig{
 		URL:             v.GetString("DATABASE_URL"),
@@ -109,6 +121,41 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func parseTrustedProxyCIDRs(raw string) ([]*net.IPNet, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(raw, ",")
+	ranges := make([]*net.IPNet, 0, len(parts))
+	for _, part := range parts {
+		candidate := strings.TrimSpace(part)
+		if candidate == "" {
+			continue
+		}
+
+		if ip := net.ParseIP(candidate); ip != nil {
+			ranges = append(ranges, singleIPNet(ip))
+			continue
+		}
+
+		_, network, err := net.ParseCIDR(candidate)
+		if err != nil {
+			return nil, fmt.Errorf("parse TRUSTED_PROXY_CIDRS entry %q: %w", candidate, err)
+		}
+		ranges = append(ranges, network)
+	}
+
+	return ranges, nil
+}
+
+func singleIPNet(ip net.IP) *net.IPNet {
+	if ipv4 := ip.To4(); ipv4 != nil {
+		return &net.IPNet{IP: ipv4, Mask: net.CIDRMask(32, 32)}
+	}
+	return &net.IPNet{IP: ip.To16(), Mask: net.CIDRMask(128, 128)}
 }
 
 // IsDevelopment returns true when running in development mode.

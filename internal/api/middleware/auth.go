@@ -21,6 +21,7 @@ const (
 	ContextKeyOrgID       contextKey = "org_id"
 	ContextKeyTokenID     contextKey = "token_id"
 	ContextKeyTokenExpiry contextKey = "token_expiry"
+	ContextKeyClientIP    contextKey = "client_ip"
 )
 
 // JWTAuth extracts and validates a Bearer JWT from the Authorization header.

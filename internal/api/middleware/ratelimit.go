@@ -1,19 +1,27 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
-
-	"github.com/osama1998h/uniauth/internal/repository/cache"
 )
 
+type rateLimitCounter interface {
+	IncrRateLimit(ctx context.Context, key string, window time.Duration) (int64, error)
+}
+
 // RateLimit returns a middleware that limits requests per IP per minute.
-func RateLimit(redisCache *cache.Cache, requestsPerMinute int) func(next http.Handler) http.Handler {
+func RateLimit(redisCache rateLimitCounter, requestsPerMinute int) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := realIP(r)
+			ip := ClientIP(r)
 			key := fmt.Sprintf("rl:%s", ip)
+
+			if redisCache == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
 
 			count, err := redisCache.IncrRateLimit(r.Context(), key, time.Minute)
 			if err != nil {
@@ -33,19 +41,4 @@ func RateLimit(redisCache *cache.Cache, requestsPerMinute int) func(next http.Ha
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-func realIP(r *http.Request) string {
-	return RealIPFromRequest(r)
-}
-
-// RealIPFromRequest extracts the real client IP from common proxy headers.
-func RealIPFromRequest(r *http.Request) string {
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
-	}
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		return ip
-	}
-	return r.RemoteAddr
 }
