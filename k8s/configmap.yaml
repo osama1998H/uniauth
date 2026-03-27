@@ -18,7 +18,7 @@ data:
   DB_MAX_IDLE_CONNS: "5"
   # Used in password reset email links — set to your public URL
   APP_BASE_URL: "https://auth.example.com"
-  # Uncomment and set SMTP values to enable email delivery
+  # Set SMTP values to enable password reset email delivery in this environment.
   # SMTP_HOST: "smtp.example.com"
   SMTP_PORT: "587"
   # SMTP_FROM: "noreply@example.com"

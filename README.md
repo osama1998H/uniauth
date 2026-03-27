@@ -31,7 +31,7 @@ cp .env.example .env
 docker compose up
 ```
 
-Server is running at `http://localhost:8080`. MailHog UI at `http://localhost:8025`.
+Server is running at `http://localhost:8080`. Docker Compose configures password reset email delivery through MailHog by default, and the MailHog UI is available at `http://localhost:8025`.
 
 ## API
 
@@ -138,7 +138,7 @@ All configuration is via environment variables (see `.env.example`):
 | `RESET_TOKEN_DURATION` | `1h` | Password reset token lifetime |
 | `RATE_LIMIT_PER_MINUTE` | `60` | Max requests per IP per minute |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins |
-| `SMTP_HOST` | — | SMTP server (leave empty to print to stdout) |
+| `SMTP_HOST` | — | SMTP server for password reset delivery; leave empty to disable delivery without exposing reset tokens |
 | `SMTP_PORT` | `587` | SMTP port |
 | `SMTP_FROM` | — | From address for emails |
 | `APP_BASE_URL` | `http://localhost:8080` | Base URL for email links |

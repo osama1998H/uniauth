@@ -1,9 +1,9 @@
 **1. Executive Summary**
-This repo’s remaining main security problems are real and concentrated in authorization, cross-tenant relationship integrity, and operational hardening. The highest-risk remaining issue is that most protected routes check only “has a valid JWT,” not “has the right permission.” The next tier is that cross-tenant user-role links are still possible if foreign UUIDs are known, password-reset tokens can still be exposed through dev-style email handling, and webhook registration still enables blind SSRF.
+This repo’s remaining main security problems are real and concentrated in authorization, cross-tenant relationship integrity, and operational hardening. The highest-risk remaining issue is that most protected routes check only “has a valid JWT,” not “has the right permission.” The next tier is that cross-tenant user-role links are still possible if foreign UUIDs are known, and webhook registration still enables blind SSRF.
 
-Update (2026-03-27): findings 1 and 3 have been fixed in the repo. The remaining findings below are still outstanding unless explicitly marked otherwise.
+Update (2026-03-27): findings 1, 3, and 5 have been fixed in the repo. The remaining findings below are still outstanding unless explicitly marked otherwise.
 
-This report began as a read-only review of the codebase across auth/session logic, authorization/tenant boundaries, and config/deployment. Findings 1 and 3 have since been remediated in the repo. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
+This report began as a read-only review of the codebase across auth/session logic, authorization/tenant boundaries, and config/deployment. Findings 1, 3, and 5 have since been remediated in the repo. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
 
 **2. Architecture and Attack Surface**
 - Entry points: public auth routes, `/health`, `/ready`, `/swagger/*`, and JWT-protected `/api/v1/*` in [router.go](/Users/osamamuhammed/uniauth/internal/api/router.go#L76).
@@ -32,6 +32,8 @@ This report began as a read-only review of the codebase across auth/session logi
 4. **Cross-tenant user-role links are possible** — High, High confidence. Affected: [rbac service](/Users/osamamuhammed/uniauth/internal/service/rbac.go#L78), [roles repo](/Users/osamamuhammed/uniauth/internal/repository/postgres/roles.go#L113), [migration](/Users/osamamuhammed/uniauth/migrations/000001_init_schema.up.sql#L91). Evidence: `AssignRoleToUser` inserts `(user_id, role_id)` without checking that both belong to the same org, and the `user_roles` table has no same-org enforcement. Risk: cross-tenant privilege contamination or integrity damage if a victim user UUID and a role UUID are known. Preconditions: attacker knows both IDs. Fix: validate same-org in service logic immediately, then add DB-level enforcement via schema redesign or trigger. Verify with cross-org assignment tests. OWASP: A01 Broken Access Control.
 
 5. **Password-reset tokens are logged in plaintext when SMTP is unset** — High, High confidence. Affected: [email.go](/Users/osamamuhammed/uniauth/internal/service/email.go#L21), [Helm values](/Users/osamamuhammed/uniauth/helm/uniauth/values.yaml#L12), [k8s configmap](/Users/osamamuhammed/uniauth/k8s/configmap.yaml#L9). Evidence: `SendPasswordReset` prints the live reset token to stdout, and production-oriented manifests default to SMTP unset. Risk: anyone with pod/log aggregation access can take over accounts by replaying reset tokens. Preconditions: SMTP is unset in a real environment and attacker can read logs. Fix: never print tokens; fail closed outside development; if dev mode is needed, log only that a reset was requested. Verify by requesting a reset in production mode with no SMTP and confirming no token reaches stdout/logs. OWASP: A02 Cryptographic Failures / A05 Security Misconfiguration.
+   Status: Fixed.
+   Remediation implemented: `EmailService` now uses structured logging without emitting raw reset tokens or links, missing or failing SMTP delivery returns a failure that causes `AuthService.RequestPasswordReset` to delete the newly created reset-token row, and local Docker Compose now routes reset email through MailHog by default instead of relying on stdout output. Regression coverage was added in [email_test.go](/Users/osamamuhammed/uniauth/internal/service/email_test.go#L1) and [auth_reset_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_reset_test.go#L1).
 
 6. **Webhook registration enables blind SSRF** — Medium, High confidence. Affected: [webhooks handler](/Users/osamamuhammed/uniauth/internal/api/handlers/webhooks.go#L68), [webhook service](/Users/osamamuhammed/uniauth/internal/service/webhook.go#L52). Evidence: webhook URLs are accepted with only non-empty validation and later used in `http.NewRequest` + `client.Do`. Risk: an authenticated user can make the server POST to arbitrary internal or external hosts, which is dangerous in cloud/VPC environments even without reading the response body. Preconditions: attacker has a JWT and the runtime can egress to sensitive networks. Fix: require `https`, block RFC1918/link-local/metadata ranges, re-resolve DNS safely, and consider egress allowlists. Verify with dynamic tests against blocked private/metadata targets. OWASP: A10 SSRF.
 
@@ -54,7 +56,7 @@ This report began as a read-only review of the codebase across auth/session logi
 - Immediate hotfix 1: separate access and refresh token semantics, enforce access-only in `JWTAuth`, and harden invalidation. Complexity: Medium-High. Regression risk: Medium-High. Order: 1.
 - Immediate hotfix 2: add authorization checks to all privileged routes. Complexity: Medium. Regression risk: Medium. Order: 2.
 - Completed hotfix 3: make all user/role object lookups and mutations tenant-scoped. Complexity: Medium. Regression risk: Medium. Order: 3.
-- Immediate hotfix 4: stop logging reset tokens and require SMTP or explicit dev-mode behavior. Complexity: Small. Regression risk: Low. Order: 4.
+- Completed hotfix 4: stop logging reset tokens and fail closed when reset-email delivery is unavailable. Complexity: Small. Regression risk: Low. Order: 4.
 - Short-term hardening 1: add webhook URL validation and outbound SSRF guards. Complexity: Medium. Regression risk: Medium. Order: 5.
 - Short-term hardening 2: replace naive forwarded-header trust with trusted-proxy-aware IP extraction. Complexity: Small-Medium. Regression risk: Medium. Order: 6.
 - Short-term hardening 3: enforce JWT secret quality, sanitize `/ready`, and define Redis degraded-mode behavior. Complexity: Small. Regression risk: Low-Medium. Order: 7.
@@ -71,14 +73,14 @@ This report began as a read-only review of the codebase across auth/session logi
 - Add tests that spoofed `X-Forwarded-For` does not create separate limiter buckets unless the request came through a trusted proxy.
 - Add tests rejecting private/link-local/metadata webhook targets.
 - Add startup/config tests that weak or placeholder `JWT_SECRET` values fail fast.
-- Add a regression test confirming password-reset tokens never appear in stdout/logs.
+- Implemented: password reset email tests now confirm reset tokens and links are never written to logs in [email_test.go](/Users/osamamuhammed/uniauth/internal/service/email_test.go#L1).
+- Implemented: auth reset-flow tests now confirm failed delivery deletes reset-token rows while successful delivery preserves a usable token in [auth_reset_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_reset_test.go#L1).
 - Add `govulncheck ./...` to CI and pin supply-chain artifacts.
 
 **7. Open Questions / Assumptions**
 - Closing finding 1 safely may require invalidating all existing JWTs or accepting a short coexistence window; there is no reliable way to distinguish already-issued access vs refresh JWTs because they were minted with the same structure.
 - I did not verify the real ingress/proxy chain. If a trusted proxy rewrites forwarded headers correctly, finding 7 is reduced but not removed for direct-access cases.
 - I did not verify pod/network egress policy. If egress is already restricted from the runtime, finding 6 is reduced.
-- I did not verify production log access controls. If logs are broadly accessible, finding 5 becomes even more serious operationally.
 - I could not verify dependency-level vulns because `govulncheck` is not installed in this workspace.
 
 I’m stopping here as requested. If you approve, I’ll implement fixes in the order above and keep the rollout plan conservative to minimize regressions.

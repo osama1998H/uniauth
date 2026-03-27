@@ -11,5 +11,8 @@ LIMIT 1;
 -- name: MarkPasswordResetTokenUsed :exec
 UPDATE password_reset_tokens SET used_at = now() WHERE id = $1;
 
+-- name: DeletePasswordResetToken :exec
+DELETE FROM password_reset_tokens WHERE id = $1;
+
 -- name: DeleteExpiredPasswordResetTokens :exec
 DELETE FROM password_reset_tokens WHERE expires_at < now();

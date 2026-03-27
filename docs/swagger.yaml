@@ -825,8 +825,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Sends a password reset link to the user's email. Always returns
-        200 to prevent email enumeration.
+      description: Attempts password reset email delivery via configured SMTP. Always
+        returns 200 to prevent email enumeration, even when delivery is unavailable.
       parameters:
       - description: Organization slug and email
         in: body

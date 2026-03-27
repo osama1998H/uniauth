@@ -511,7 +511,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/password/reset-request": {
             "post": {
-                "description": "Sends a password reset link to the user's email. Always returns 200 to prevent email enumeration.",
+                "description": "Attempts password reset email delivery via configured SMTP. Always returns 200 to prevent email enumeration, even when delivery is unavailable.",
                 "consumes": [
                     "application/json"
                 ],
