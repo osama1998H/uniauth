@@ -1,5 +1,8 @@
 # UniAuth
 
+<img width="1536" height="1024" alt="ChatGPT Image Mar 27, 2026, 08_00_27 PM" src="https://github.com/user-attachments/assets/33204822-ac87-40af-a13e-2757e45f3461" />
+
+
 **UniAuth** is a self-hosted, production-grade authentication and authorization service built in Go. Use it as the auth backend for any of your applications — a lightweight alternative to Keycloak or Auth0.
 
 > **Status:** Active development · v0.1.0 coming soon
