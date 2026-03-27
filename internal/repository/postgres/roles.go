@@ -173,6 +173,25 @@ func (s *Store) ListPermissionsByUser(ctx context.Context, userID uuid.UUID) ([]
 	return collectPermissions(rows)
 }
 
+func (s *Store) UserHasPermission(ctx context.Context, orgID, userID uuid.UUID, permission string) (bool, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM user_roles ur
+			JOIN role_permissions rp ON rp.role_id = ur.role_id
+			JOIN permissions p ON p.id = rp.permission_id
+			WHERE ur.org_id = $1 AND ur.user_id = $2 AND p.name = $3
+		)`,
+		orgID, userID, permission,
+	)
+
+	var allowed bool
+	if err := row.Scan(&allowed); err != nil {
+		return false, fmt.Errorf("check user permission: %w", err)
+	}
+	return allowed, nil
+}
+
 func (s *Store) GetPermissionByName(ctx context.Context, name string) (*domain.Permission, error) {
 	row := s.pool.QueryRow(ctx, `SELECT id, name, description FROM permissions WHERE name = $1`, name)
 	p := &domain.Permission{}

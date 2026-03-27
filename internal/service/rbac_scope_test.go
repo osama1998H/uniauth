@@ -55,3 +55,49 @@ func TestRBACServiceRejectsCrossOrgPermissionAssignment(t *testing.T) {
 		t.Fatalf("expected ErrNotFound for foreign-org permission assignment, got %v", err)
 	}
 }
+
+func TestRBACServiceAuthorize(t *testing.T) {
+	store := testutil.RequireTestStore(t)
+	svc := NewRBACService(store, NewAuditService(store, testutil.DiscardLogger()))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	org := testutil.CreateOrganization(t, store, "svc-authorize-org")
+	regularUser := testutil.CreateUser(t, store, org.ID, "svc-authorize-user")
+	superuser, err := store.CreateUser(ctx, org.ID, "svc-authorize-superuser@example.com", "hashed-password", nil, true)
+	if err != nil {
+		t.Fatalf("CreateUser(superuser) error = %v", err)
+	}
+
+	t.Run("denies user without permission", func(t *testing.T) {
+		err := svc.Authorize(ctx, org.ID, regularUser.ID, domain.PermissionUsersRead)
+		if !errors.Is(err, domain.ErrForbidden) {
+			t.Fatalf("expected ErrForbidden, got %v", err)
+		}
+	})
+
+	t.Run("allows user with permission", func(t *testing.T) {
+		role := testutil.CreateRole(t, store, org.ID, "svc-authorize-role")
+		perm, err := store.GetPermissionByName(ctx, domain.PermissionUsersRead)
+		if err != nil {
+			t.Fatalf("GetPermissionByName() error = %v", err)
+		}
+		if err := store.AssignPermissionToRole(ctx, role.ID, perm.ID); err != nil {
+			t.Fatalf("AssignPermissionToRole() error = %v", err)
+		}
+		if err := store.AssignRoleToUser(ctx, org.ID, regularUser.ID, role.ID); err != nil {
+			t.Fatalf("AssignRoleToUser() error = %v", err)
+		}
+
+		if err := svc.Authorize(ctx, org.ID, regularUser.ID, domain.PermissionUsersRead); err != nil {
+			t.Fatalf("Authorize() error = %v", err)
+		}
+	})
+
+	t.Run("allows superuser without role assignments", func(t *testing.T) {
+		if err := svc.Authorize(ctx, org.ID, superuser.ID, domain.PermissionUsersDelete); err != nil {
+			t.Fatalf("Authorize(superuser) error = %v", err)
+		}
+	})
+}

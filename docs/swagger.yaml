@@ -505,7 +505,8 @@ paths:
   /api/v1/api-keys:
     get:
       description: Returns all API keys for the authenticated user's organization.
-        Key prefixes are shown; full keys are never returned after creation.
+        Key prefixes are shown; full keys are never returned after creation. Requires
+        the `apikeys:read` permission.
       produces:
       - application/json
       responses:
@@ -515,6 +516,10 @@ paths:
             $ref: '#/definitions/internal_api_handlers.APIKeyListResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
@@ -530,7 +535,7 @@ paths:
       consumes:
       - application/json
       description: Creates a new API key. The full plaintext key is returned only
-        in this response — store it securely.
+        in this response — store it securely. Requires the `apikeys:write` permission.
       parameters:
       - description: API key configuration
         in: body
@@ -553,6 +558,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -565,7 +574,7 @@ paths:
   /api/v1/api-keys/{id}:
     delete:
       description: Immediately revokes the specified API key. All subsequent requests
-        using this key will be rejected.
+        using this key will be rejected. Requires the `apikeys:delete` permission.
       parameters:
       - description: API Key UUID
         in: path
@@ -587,6 +596,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -603,7 +616,7 @@ paths:
   /api/v1/audit:
     get:
       description: Returns audit log entries for the authenticated user's organization,
-        with optional filters.
+        with optional filters. Requires the `audit:read` permission.
       parameters:
       - description: Maximum number of results
         in: query
@@ -638,6 +651,10 @@ paths:
             $ref: '#/definitions/internal_api_handlers.AuditListResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
@@ -921,7 +938,7 @@ paths:
   /api/v1/organizations/me:
     get:
       description: Returns the organization associated with the authenticated user's
-        JWT.
+        JWT. Requires the `organizations:read` permission.
       produces:
       - application/json
       responses:
@@ -931,6 +948,10 @@ paths:
             $ref: '#/definitions/internal_api_handlers.OrgView'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
@@ -949,7 +970,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Updates the name of the authenticated user's organization.
+      description: Updates the name of the authenticated user's organization. Requires
+        the `organizations:write` permission.
       parameters:
       - description: New organization name
         in: body
@@ -972,6 +994,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -984,6 +1010,7 @@ paths:
   /api/v1/roles:
     get:
       description: Returns all roles defined within the authenticated user's organization.
+        Requires the `roles:read` permission.
       produces:
       - application/json
       responses:
@@ -993,6 +1020,10 @@ paths:
             $ref: '#/definitions/internal_api_handlers.RolesListResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
@@ -1008,6 +1039,7 @@ paths:
       consumes:
       - application/json
       description: Creates a new RBAC role within the authenticated user's organization.
+        Requires the `roles:write` permission.
       parameters:
       - description: Role details
         in: body
@@ -1030,6 +1062,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "409":
           description: Role name already exists
           schema:
@@ -1045,7 +1081,8 @@ paths:
       - Roles
   /api/v1/roles/{id}:
     delete:
-      description: Permanently deletes a role from the organization.
+      description: Permanently deletes a role from the organization. Requires the
+        `roles:delete` permission.
       parameters:
       - description: Role UUID
         in: path
@@ -1067,6 +1104,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1083,7 +1124,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Updates the name and/or description of an existing role.
+      description: Updates the name and/or description of an existing role. Requires
+        the `roles:write` permission.
       parameters:
       - description: Role UUID
         in: path
@@ -1111,6 +1153,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1129,7 +1175,7 @@ paths:
       consumes:
       - application/json
       description: Replaces the permission set of the specified role with the provided
-        list.
+        list. Requires the `roles:write` permission.
       parameters:
       - description: Role UUID
         in: path
@@ -1157,6 +1203,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1173,6 +1223,7 @@ paths:
   /api/v1/roles/permissions:
     get:
       description: Returns all system-level permissions that can be assigned to roles.
+        Requires the `roles:read` permission.
       produces:
       - application/json
       responses:
@@ -1182,6 +1233,10 @@ paths:
             $ref: '#/definitions/internal_api_handlers.PermissionsListResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
@@ -1196,7 +1251,7 @@ paths:
   /api/v1/users:
     get:
       description: Returns a paginated list of all users in the authenticated user's
-        organization.
+        organization. Requires the `users:read` permission.
       parameters:
       - description: Maximum number of results (default 50, max 100)
         in: query
@@ -1217,6 +1272,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -1229,7 +1288,7 @@ paths:
   /api/v1/users/{id}:
     delete:
       description: Marks the specified user as inactive. Deactivated users cannot
-        log in.
+        log in. Requires the `users:delete` permission.
       parameters:
       - description: User UUID
         in: path
@@ -1251,6 +1310,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1266,6 +1329,7 @@ paths:
       - Users
     get:
       description: Returns the profile of a specific user within the organization.
+        Requires the `users:read` permission.
       parameters:
       - description: User UUID
         in: path
@@ -1287,6 +1351,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1305,6 +1373,7 @@ paths:
       consumes:
       - application/json
       description: Grants the specified role to the target user within the organization.
+        Requires the `roles:write` permission.
       parameters:
       - description: User UUID
         in: path
@@ -1330,6 +1399,10 @@ paths:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
@@ -1411,7 +1484,7 @@ paths:
   /api/v1/webhooks:
     get:
       description: Returns all webhook endpoints configured for the authenticated
-        user's organization.
+        user's organization. Requires the `webhooks:read` permission.
       produces:
       - application/json
       responses:
@@ -1421,6 +1494,10 @@ paths:
             $ref: '#/definitions/internal_api_handlers.WebhookListResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
@@ -1438,7 +1515,7 @@ paths:
       description: Registers a new webhook endpoint. Webhook URLs must be direct public
         HTTPS endpoints; localhost, private, link-local, and metadata-style targets
         are rejected. Redirects are not followed. The HMAC signing secret is returned
-        only in this response — store it securely.
+        only in this response — store it securely. Requires the `webhooks:write` permission.
       parameters:
       - description: Webhook configuration
         in: body
@@ -1461,6 +1538,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -1472,7 +1553,8 @@ paths:
       - Webhooks
   /api/v1/webhooks/{id}:
     delete:
-      description: Permanently removes the specified webhook endpoint.
+      description: Permanently removes the specified webhook endpoint. Requires the
+        `webhooks:delete` permission.
       parameters:
       - description: Webhook UUID
         in: path
@@ -1494,6 +1576,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1512,7 +1598,8 @@ paths:
       - application/json
       description: Updates the URL, event subscriptions, and/or active status of a
         webhook. If a URL is provided, it must be a direct public HTTPS endpoint and
-        redirects will not be followed during delivery.
+        redirects will not be followed during delivery. Requires the `webhooks:write`
+        permission.
       parameters:
       - description: Webhook UUID
         in: path
@@ -1538,6 +1625,10 @@ paths:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_api_handlers.SwaggerErrorResponse'
         "404":

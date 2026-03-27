@@ -1,9 +1,9 @@
 **1. Executive Summary**
-This repo’s remaining main security problems are real and concentrated in authorization and operational hardening. The highest-risk remaining issue is that most protected routes check only “has a valid JWT,” not “has the right permission.” The next tier is that Redis fail-open behavior and weak JWT secret acceptance still weaken abuse protection and revocation guarantees.
+This repo’s remaining main security problems are real and concentrated in operational hardening. The highest-risk remaining issue is now that Redis fail-open behavior can weaken revocation and throttling during outages, with weak JWT secret acceptance as the next tier of residual risk.
 
-Update (2026-03-28): findings 1, 3, 4, 5, 6, and 7 have been fixed in the repo. The remaining findings below are still outstanding unless explicitly marked otherwise.
+Update (2026-03-28): findings 1, 2, 3, 4, 5, 6, and 7 have been fixed in the repo. The remaining findings below are still outstanding unless explicitly marked otherwise.
 
-This report began as a read-only review of the codebase across auth/session logic, authorization/tenant boundaries, and config/deployment. Findings 1, 3, 4, 5, 6, and 7 have since been remediated in the repo. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
+This report began as a read-only review of the codebase across auth/session logic, authorization/tenant boundaries, and config/deployment. Findings 1, 2, 3, 4, 5, 6, and 7 have since been remediated in the repo. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
 
 **2. Architecture and Attack Surface**
 - Entry points: public auth routes, `/health`, `/ready`, `/swagger/*`, and JWT-protected `/api/v1/*` in [router.go](/Users/osamamuhammed/uniauth/internal/api/router.go#L76).
@@ -24,6 +24,8 @@ This report began as a read-only review of the codebase across auth/session logi
    Remediation implemented: access and refresh JWTs now carry an explicit token-purpose claim, bearer middleware accepts access tokens only, and refresh-only consumers use a dedicated verifier with a legacy bridge limited to active-session-backed refresh flows. Regression tests were added in [jwt_test.go](/Users/osamamuhammed/uniauth/pkg/token/jwt_test.go#L1), [auth_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/auth_test.go#L1), and [auth_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_test.go#L1).
 
 2. **Protected admin routes have authentication but almost no authorization** — High, High confidence. Affected: [router.go](/Users/osamamuhammed/uniauth/internal/api/router.go#L95), [rbac.go](/Users/osamamuhammed/uniauth/internal/service/rbac.go#L103), [users handler](/Users/osamamuhammed/uniauth/internal/api/handlers/users.go#L104), [roles handler](/Users/osamamuhammed/uniauth/internal/api/handlers/roles.go#L56), [audit handler](/Users/osamamuhammed/uniauth/internal/api/handlers/audit.go#L41), [apikey handler](/Users/osamamuhammed/uniauth/internal/api/handlers/apikeys.go#L34), [webhook handler](/Users/osamamuhammed/uniauth/internal/api/handlers/webhooks.go#L35). Evidence: every protected route is gated only by `JWTAuth`; `HasPermission` exists but is never called. Risk: any authenticated user can list/deactivate users, manage roles, create/revoke API keys, read audit logs, manage webhooks, and update the org. Preconditions: attacker has any valid JWT in the tenant. Fix: add explicit permission checks per route/action and define a permission matrix. Verify with negative tests for every admin endpoint using a valid but low-privilege JWT. OWASP: A01 Broken Access Control / privilege escalation.
+   Status: Fixed.
+   Remediation implemented: privileged JWT routes now enforce a router-level permission matrix via reusable middleware, RBAC authorization is evaluated request-time against a DB-backed `Authorize` path with `is_superuser` bootstrap bypass support, and the permission seed set now includes `organizations:read` and `organizations:write` for org-profile endpoints. Regression coverage was added in [router_authorization_test.go](/Users/osamamuhammed/uniauth/internal/api/router_authorization_test.go#L1), [tenant_scope_test.go](/Users/osamamuhammed/uniauth/internal/repository/postgres/tenant_scope_test.go#L1), and [rbac_scope_test.go](/Users/osamamuhammed/uniauth/internal/service/rbac_scope_test.go#L1).
 
 3. **User and role object access is not consistently scoped by `org_id`** — High, High confidence. Affected: [users handler](/Users/osamamuhammed/uniauth/internal/api/handlers/users.go#L143), [user service](/Users/osamamuhammed/uniauth/internal/service/user.go#L24), [users repo](/Users/osamamuhammed/uniauth/internal/repository/postgres/users.go#L24), [roles handler](/Users/osamamuhammed/uniauth/internal/api/handlers/roles.go#L129), [rbac service](/Users/osamamuhammed/uniauth/internal/service/rbac.go#L45), [roles repo](/Users/osamamuhammed/uniauth/internal/repository/postgres/roles.go#L24). Evidence: `GetUserByID`, `UpdateUser`, `DeactivateUser`, `GetRoleByID`, `UpdateRole`, and `DeleteRole` operate on raw UUIDs without caller-org filtering. Risk: if a foreign UUID is learned from logs, support data, exports, or future endpoints, a user in one org can read or mutate another org’s user/role. Preconditions: attacker knows a target UUID. Fix: pass `org_id` into service/repo methods and enforce it on all lookups/mutations, returning `404` for out-of-org objects. Verify with cross-org tests for every `{id}` route. OWASP: A01 Broken Access Control / multi-tenant isolation failure.
    Status: Fixed.
@@ -60,23 +62,23 @@ This report began as a read-only review of the codebase across auth/session logi
 
 **5. Remediation Roadmap**
 - Immediate hotfix 1: separate access and refresh token semantics, enforce access-only in `JWTAuth`, and harden invalidation. Complexity: Medium-High. Regression risk: Medium-High. Order: 1.
-- Immediate hotfix 2: add authorization checks to all privileged routes. Complexity: Medium. Regression risk: Medium. Order: 2.
+- Completed hotfix 2: add authorization checks to privileged routes with a reusable permission middleware and request-time RBAC enforcement. Complexity: Medium. Regression risk: Medium. Order: 2.
 - Completed hotfix 3: make all user/role object lookups and mutations tenant-scoped. Complexity: Medium. Regression risk: Medium. Order: 3.
 - Completed hotfix 4: stop logging reset tokens and fail closed when reset-email delivery is unavailable. Complexity: Small. Regression risk: Low. Order: 4.
 - Completed hardening 1: add webhook URL validation and outbound SSRF guards. Complexity: Medium. Regression risk: Medium. Order: 5.
 - Completed hardening 2: replace naive forwarded-header trust with trusted-proxy-aware IP extraction and explicit proxy CIDR configuration. Complexity: Small-Medium. Regression risk: Medium. Order: 6.
 - Short-term hardening 3: enforce JWT secret quality, sanitize `/ready`, and define Redis degraded-mode behavior. Complexity: Small. Regression risk: Low-Medium. Order: 7.
-- Structural improvement 1: introduce reusable authorization middleware/policy mapping instead of ad hoc handler checks. Complexity: High. Regression risk: Medium.
+- Completed structural improvement 1: introduce reusable authorization middleware/policy mapping instead of ad hoc handler checks. Complexity: High. Regression risk: Medium.
 - Completed structural improvement 2: add DB-level same-org enforcement for role assignments and auto-remove legacy cross-tenant links during migration. Complexity: Medium. Regression risk: Medium.
 - Structural improvement 3: pin CI actions/artifacts/images and add `govulncheck` to CI. Complexity: Small. Regression risk: Low.
 
 **6. Verification Checklist**
 - Add a test proving a refresh token gets `401` on a normal protected route like `/api/v1/users/me`.
 - Add tests proving logout, logout-all, password change, and password reset invalidate both access and refresh credentials in practice.
-- Add negative authz tests for every privileged endpoint using a valid but low-privilege JWT.
+- Implemented: router-level authorization tests now verify low-privilege JWTs receive `403` on every permission-gated endpoint, self-service user routes remain accessible without extra RBAC grants, explicit permission grants unlock representative endpoints, and superusers bypass route-level checks in [router_authorization_test.go](/Users/osamamuhammed/uniauth/internal/api/router_authorization_test.go#L1).
 - Implemented: cross-org repository tests now cover user/role lookup and mutation scoping in [tenant_scope_test.go](/Users/osamamuhammed/uniauth/internal/repository/postgres/tenant_scope_test.go#L1).
 - Implemented: user-role integrity tests now cover same-org assignment success, repository rejection of foreign-org pairs, and raw SQL schema-level enforcement of the same-org invariant in [tenant_scope_test.go](/Users/osamamuhammed/uniauth/internal/repository/postgres/tenant_scope_test.go#L1).
-- Implemented: RBAC service tests now reject foreign-org role assignment and permission assignment in [rbac_scope_test.go](/Users/osamamuhammed/uniauth/internal/service/rbac_scope_test.go#L1).
+- Implemented: RBAC service tests now reject foreign-org role assignment and permission assignment, and verify `Authorize` returns `ErrForbidden` for missing grants while allowing superuser bypass in [rbac_scope_test.go](/Users/osamamuhammed/uniauth/internal/service/rbac_scope_test.go#L1).
 - Implemented: trusted-proxy-aware IP resolution tests now confirm untrusted peers cannot spoof forwarded headers, trusted proxy chains resolve the correct client IP, and rate limiting buckets remain stable under header spoofing unless the peer is explicitly trusted in [ratelimit_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit_test.go#L1).
 - Implemented: webhook validation and delivery tests now reject private/link-local/metadata webhook targets and ensure blocked destinations are not dialed in [webhook_test.go](/Users/osamamuhammed/uniauth/internal/service/webhook_test.go#L1) and [webhooks_test.go](/Users/osamamuhammed/uniauth/internal/api/handlers/webhooks_test.go#L1).
 - Add startup/config tests that weak or placeholder `JWT_SECRET` values fail fast.
@@ -85,9 +87,8 @@ This report began as a read-only review of the codebase across auth/session logi
 - Add `govulncheck ./...` to CI and pin supply-chain artifacts.
 
 **7. Open Questions / Assumptions**
-- Closing finding 1 safely may require invalidating all existing JWTs or accepting a short coexistence window; there is no reliable way to distinguish already-issued access vs refresh JWTs because they were minted with the same structure.
 - Deployments behind a reverse proxy must now set `TRUSTED_PROXY_CIDRS` explicitly; otherwise UniAuth will use the proxy peer IP for rate limiting and audit trails by design.
 - I did not verify pod/network egress policy. Existing egress controls remain useful defense-in-depth on top of the new webhook validation and delivery guards.
 - I could not verify dependency-level vulns because `govulncheck` is not installed in this workspace.
 
-This report is now a current status snapshot of the repo; 5 issues remain open in the report: findings 2, 8, 9, plus the 2 lower-severity hardening items.
+Quick note: 4 security issues remain open in the report: findings 8 and 9, plus the 2 lower-severity hardening items.

@@ -13,6 +13,7 @@ import (
 	"github.com/osama1998h/uniauth/internal/api/handlers"
 	"github.com/osama1998h/uniauth/internal/api/middleware"
 	"github.com/osama1998h/uniauth/internal/config"
+	"github.com/osama1998h/uniauth/internal/domain"
 	"github.com/osama1998h/uniauth/internal/repository/cache"
 	db "github.com/osama1998h/uniauth/internal/repository/postgres"
 	"github.com/osama1998h/uniauth/internal/service"
@@ -101,44 +102,44 @@ func NewRouter(
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/me", userH.GetMe)
 				r.Put("/me", userH.UpdateMe)
-				r.Get("/", userH.ListUsers)
-				r.Get("/{id}", userH.GetUser)
-				r.Delete("/{id}", userH.DeactivateUser)
-				r.Post("/{id}/roles", roleH.AssignRoleToUser)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionUsersRead)).Get("/", userH.ListUsers)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionUsersRead)).Get("/{id}", userH.GetUser)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionUsersDelete)).Delete("/{id}", userH.DeactivateUser)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionRolesWrite)).Post("/{id}/roles", roleH.AssignRoleToUser)
 			})
 
 			// Organizations
 			r.Route("/organizations", func(r chi.Router) {
-				r.Get("/me", orgH.GetMyOrg)
-				r.Put("/me", orgH.UpdateMyOrg)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionOrganizationsRead)).Get("/me", orgH.GetMyOrg)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionOrganizationsWrite)).Put("/me", orgH.UpdateMyOrg)
 			})
 
 			// Roles & Permissions
 			r.Route("/roles", func(r chi.Router) {
-				r.Get("/permissions", roleH.ListPermissions)
-				r.Get("/", roleH.ListRoles)
-				r.Post("/", roleH.CreateRole)
-				r.Put("/{id}", roleH.UpdateRole)
-				r.Delete("/{id}", roleH.DeleteRole)
-				r.Post("/{id}/permissions", roleH.AssignPermissions)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionRolesRead)).Get("/permissions", roleH.ListPermissions)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionRolesRead)).Get("/", roleH.ListRoles)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionRolesWrite)).Post("/", roleH.CreateRole)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionRolesWrite)).Put("/{id}", roleH.UpdateRole)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionRolesDelete)).Delete("/{id}", roleH.DeleteRole)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionRolesWrite)).Post("/{id}/permissions", roleH.AssignPermissions)
 			})
 
 			// API Keys
 			r.Route("/api-keys", func(r chi.Router) {
-				r.Get("/", apiKeyH.ListAPIKeys)
-				r.Post("/", apiKeyH.CreateAPIKey)
-				r.Delete("/{id}", apiKeyH.RevokeAPIKey)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionAPIKeysRead)).Get("/", apiKeyH.ListAPIKeys)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionAPIKeysWrite)).Post("/", apiKeyH.CreateAPIKey)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionAPIKeysDelete)).Delete("/{id}", apiKeyH.RevokeAPIKey)
 			})
 
 			// Audit Logs
-			r.Get("/audit", auditH.ListAuditLogs)
+			r.With(middleware.RequirePermission(rbacSvc, domain.PermissionAuditRead)).Get("/audit", auditH.ListAuditLogs)
 
 			// Webhooks
 			r.Route("/webhooks", func(r chi.Router) {
-				r.Get("/", webhookH.ListWebhooks)
-				r.Post("/", webhookH.CreateWebhook)
-				r.Put("/{id}", webhookH.UpdateWebhook)
-				r.Delete("/{id}", webhookH.DeleteWebhook)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionWebhooksRead)).Get("/", webhookH.ListWebhooks)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionWebhooksWrite)).Post("/", webhookH.CreateWebhook)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionWebhooksWrite)).Put("/{id}", webhookH.UpdateWebhook)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionWebhooksDelete)).Delete("/{id}", webhookH.DeleteWebhook)
 			})
 		})
 	})

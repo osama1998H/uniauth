@@ -85,7 +85,9 @@ INSERT INTO permissions (name, description) VALUES
     ('audit:read',         'Read audit logs'),
     ('webhooks:read',      'List webhooks'),
     ('webhooks:write',     'Create and update webhooks'),
-    ('webhooks:delete',    'Delete webhooks');
+    ('webhooks:delete',    'Delete webhooks'),
+    ('organizations:read', 'Read organization profile data'),
+    ('organizations:write','Update organization profile data');
 
 -- Role <-> Permission
 CREATE TABLE role_permissions (

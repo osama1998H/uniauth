@@ -223,3 +223,57 @@ func TestStoreUserRoleTenantIntegrity(t *testing.T) {
 		}
 	})
 }
+
+func TestStoreUserHasPermissionHonorsOrgScope(t *testing.T) {
+	store := testutil.RequireTestStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	orgA := testutil.CreateOrganization(t, store, "user-perm-org-a")
+	orgB := testutil.CreateOrganization(t, store, "user-perm-org-b")
+	userA := testutil.CreateUser(t, store, orgA.ID, "user-perm-user-a")
+	userB := testutil.CreateUser(t, store, orgB.ID, "user-perm-user-b")
+	roleA := testutil.CreateRole(t, store, orgA.ID, "user-perm-role-a")
+	roleB := testutil.CreateRole(t, store, orgB.ID, "user-perm-role-b")
+
+	perm, err := store.GetPermissionByName(ctx, domain.PermissionUsersRead)
+	if err != nil {
+		t.Fatalf("GetPermissionByName() error = %v", err)
+	}
+	if err := store.AssignPermissionToRole(ctx, roleA.ID, perm.ID); err != nil {
+		t.Fatalf("AssignPermissionToRole(roleA) error = %v", err)
+	}
+	if err := store.AssignPermissionToRole(ctx, roleB.ID, perm.ID); err != nil {
+		t.Fatalf("AssignPermissionToRole(roleB) error = %v", err)
+	}
+	if err := store.AssignRoleToUser(ctx, orgA.ID, userA.ID, roleA.ID); err != nil {
+		t.Fatalf("AssignRoleToUser() error = %v", err)
+	}
+	if err := store.AssignRoleToUser(ctx, orgB.ID, userB.ID, roleB.ID); err != nil {
+		t.Fatalf("AssignRoleToUser() error = %v", err)
+	}
+
+	allowed, err := store.UserHasPermission(ctx, orgA.ID, userA.ID, domain.PermissionUsersRead)
+	if err != nil {
+		t.Fatalf("UserHasPermission(orgA, userA) error = %v", err)
+	}
+	if !allowed {
+		t.Fatal("expected userA to have users:read in orgA")
+	}
+
+	allowed, err = store.UserHasPermission(ctx, orgA.ID, userB.ID, domain.PermissionUsersRead)
+	if err != nil {
+		t.Fatalf("UserHasPermission(orgA, userB) error = %v", err)
+	}
+	if allowed {
+		t.Fatal("expected foreign-org user to be denied")
+	}
+
+	allowed, err = store.UserHasPermission(ctx, orgA.ID, userA.ID, domain.PermissionUsersDelete)
+	if err != nil {
+		t.Fatalf("UserHasPermission(orgA, userA, users:delete) error = %v", err)
+	}
+	if allowed {
+		t.Fatal("expected missing permission to be denied")
+	}
+}
