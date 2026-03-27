@@ -14,24 +14,27 @@ import (
 
 	"github.com/osama1998h/uniauth/internal/config"
 	"github.com/osama1998h/uniauth/internal/domain"
+	"github.com/osama1998h/uniauth/internal/repository/cache"
 	db "github.com/osama1998h/uniauth/internal/repository/postgres"
 	"github.com/osama1998h/uniauth/pkg/token"
 )
 
 // AuthService handles authentication logic.
 type AuthService struct {
-	store        *db.Store
-	tokenMaker   *token.Maker
-	auditSvc     *AuditService
-	webhookSvc   *WebhookService
-	emailSvc     *EmailService
-	authCfg      config.AuthConfig
+	store      *db.Store
+	tokenMaker *token.Maker
+	cache      *cache.Cache
+	auditSvc   *AuditService
+	webhookSvc *WebhookService
+	emailSvc   *EmailService
+	authCfg    config.AuthConfig
 }
 
 // NewAuthService creates an AuthService.
 func NewAuthService(
 	store *db.Store,
 	tokenMaker *token.Maker,
+	c *cache.Cache,
 	auditSvc *AuditService,
 	webhookSvc *WebhookService,
 	emailSvc *EmailService,
@@ -40,6 +43,7 @@ func NewAuthService(
 	return &AuthService{
 		store:      store,
 		tokenMaker: tokenMaker,
+		cache:      c,
 		auditSvc:   auditSvc,
 		webhookSvc: webhookSvc,
 		emailSvc:   emailSvc,
@@ -93,9 +97,9 @@ func (s *AuthService) Register(ctx context.Context, in RegisterInput, ipAddress,
 	}
 
 	s.auditSvc.Log(&domain.AuditLog{
-		OrgID:  &org.ID,
-		UserID: &user.ID,
-		Action: domain.AuditActionUserRegistered,
+		OrgID:     &org.ID,
+		UserID:    &user.ID,
+		Action:    domain.AuditActionUserRegistered,
 		IPAddress: ipAddress,
 		UserAgent: userAgent,
 	})
@@ -193,8 +197,9 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string, userAgen
 	return pair, user, nil
 }
 
-// Logout revokes the session associated with the given refresh token.
-func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+// Logout revokes the session associated with the given refresh token and
+// blacklists the current access token so it is rejected on all instances.
+func (s *AuthService) Logout(ctx context.Context, refreshToken string, accessTokenID uuid.UUID, accessTokenExpiresAt time.Time) error {
 	tokenHash := hashString(refreshToken)
 	sess, err := s.store.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
@@ -203,11 +208,16 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 		}
 		return err
 	}
-	return s.store.RevokeSession(ctx, sess.ID)
+	if err := s.store.RevokeSession(ctx, sess.ID); err != nil {
+		return err
+	}
+	s.blacklistAccessToken(ctx, accessTokenID, accessTokenExpiresAt)
+	return nil
 }
 
-// LogoutAll revokes all active sessions for a user.
-func (s *AuthService) LogoutAll(ctx context.Context, userID uuid.UUID) error {
+// LogoutAll revokes all active sessions for a user and blacklists the current access token.
+func (s *AuthService) LogoutAll(ctx context.Context, userID uuid.UUID, accessTokenID uuid.UUID, accessTokenExpiresAt time.Time) error {
+	s.blacklistAccessToken(ctx, accessTokenID, accessTokenExpiresAt)
 	return s.store.RevokeAllUserSessions(ctx, userID)
 }
 
@@ -267,8 +277,9 @@ func (s *AuthService) ConfirmPasswordReset(ctx context.Context, rawToken, newPas
 	return nil
 }
 
-// ChangePassword updates a user's password after verifying the current one.
-func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+// ChangePassword updates a user's password after verifying the current one,
+// then blacklists the current access token so it is rejected on all instances.
+func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, accessTokenID uuid.UUID, accessTokenExpiresAt time.Time) error {
 	if err := validatePassword(newPassword); err != nil {
 		return err
 	}
@@ -293,9 +304,20 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 
 	// Revoke all existing sessions so old tokens can't be reused
 	_ = s.store.RevokeAllUserSessions(ctx, userID)
+	s.blacklistAccessToken(ctx, accessTokenID, accessTokenExpiresAt)
 
 	s.auditSvc.Log(&domain.AuditLog{OrgID: &user.OrgID, UserID: &userID, Action: domain.AuditActionPasswordChanged})
 	return nil
+}
+
+// blacklistAccessToken stores the token JTI in Redis so that all instances
+// reject it immediately. Best-effort: errors are silently ignored because the
+// short access token TTL (default 15 min) is already a reasonable security bound.
+func (s *AuthService) blacklistAccessToken(ctx context.Context, tokenID uuid.UUID, expiresAt time.Time) {
+	ttl := time.Until(expiresAt)
+	if ttl > 0 {
+		_ = s.cache.BlacklistToken(ctx, tokenID.String(), ttl)
+	}
 }
 
 // issueTokenPair creates access+refresh tokens and persists the session.

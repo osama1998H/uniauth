@@ -135,7 +135,10 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.authSvc.Logout(r.Context(), req.RefreshToken); err != nil {
+	tokenID, _ := middleware.GetTokenID(r.Context())
+	tokenExpiry, _ := middleware.GetTokenExpiry(r.Context())
+
+	if err := h.authSvc.Logout(r.Context(), req.RefreshToken, tokenID, tokenExpiry); err != nil {
 		handleServiceError(w, err)
 		return
 	}
@@ -152,7 +155,10 @@ func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.authSvc.LogoutAll(r.Context(), userID); err != nil {
+	tokenID, _ := middleware.GetTokenID(r.Context())
+	tokenExpiry, _ := middleware.GetTokenExpiry(r.Context())
+
+	if err := h.authSvc.LogoutAll(r.Context(), userID, tokenID, tokenExpiry); err != nil {
 		handleServiceError(w, err)
 		return
 	}
@@ -226,7 +232,10 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.authSvc.ChangePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+	tokenID, _ := middleware.GetTokenID(r.Context())
+	tokenExpiry, _ := middleware.GetTokenExpiry(r.Context())
+
+	if err := h.authSvc.ChangePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword, tokenID, tokenExpiry); err != nil {
 		handleServiceError(w, err)
 		return
 	}

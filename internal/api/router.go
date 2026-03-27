@@ -29,7 +29,7 @@ func NewRouter(
 	auditSvc := service.NewAuditService(store, logger)
 	webhookSvc := service.NewWebhookService(store, logger)
 	emailSvc := service.NewEmailService(cfg.Email)
-	authSvc := service.NewAuthService(store, tokenMaker, auditSvc, webhookSvc, emailSvc, cfg.Auth)
+	authSvc := service.NewAuthService(store, tokenMaker, redisCache, auditSvc, webhookSvc, emailSvc, cfg.Auth)
 	userSvc := service.NewUserService(store, auditSvc)
 	orgSvc := service.NewOrgService(store)
 	rbacSvc := service.NewRBACService(store, auditSvc)
@@ -78,7 +78,7 @@ func NewRouter(
 
 			// Auth — requires JWT
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.JWTAuth(tokenMaker))
+				r.Use(middleware.JWTAuth(tokenMaker, redisCache))
 				r.Post("/logout", authH.Logout)
 				r.Post("/logout-all", authH.LogoutAll)
 				r.Put("/password/change", authH.ChangePassword)
@@ -87,7 +87,7 @@ func NewRouter(
 
 		// All routes below require JWT auth
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.JWTAuth(tokenMaker))
+			r.Use(middleware.JWTAuth(tokenMaker, redisCache))
 
 			// Users
 			r.Route("/users", func(r chi.Router) {

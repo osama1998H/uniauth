@@ -35,7 +35,7 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	}
 
 	reached := false
-	handler := JWTAuth(maker)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -65,7 +65,7 @@ func TestJWTAuth_ValidToken_InjectsContext(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := JWTAuth(maker)(captureHandler)
+	handler := JWTAuth(maker, nil)(captureHandler)
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
 	w := httptest.NewRecorder()
@@ -82,7 +82,7 @@ func TestJWTAuth_ValidToken_InjectsContext(t *testing.T) {
 func TestJWTAuth_MissingAuthorizationHeader(t *testing.T) {
 	maker := newTestMaker()
 	reached := false
-	handler := JWTAuth(maker)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
@@ -99,7 +99,7 @@ func TestJWTAuth_MissingAuthorizationHeader(t *testing.T) {
 func TestJWTAuth_MalformedBearer(t *testing.T) {
 	maker := newTestMaker()
 	reached := false
-	handler := JWTAuth(maker)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	// Missing "Bearer " prefix
@@ -125,7 +125,7 @@ func TestJWTAuth_ExpiredToken(t *testing.T) {
 
 	reached := false
 	// Use the valid maker for the middleware (correct secret, but token is expired)
-	handler := JWTAuth(validMaker)(nextHandler(&reached))
+	handler := JWTAuth(validMaker, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -149,7 +149,7 @@ func TestJWTAuth_WrongSecret(t *testing.T) {
 	tokenStr, _, _ := signingMaker.CreateAccessToken(userID, orgID)
 
 	reached := false
-	handler := JWTAuth(verifyingMaker)(nextHandler(&reached))
+	handler := JWTAuth(verifyingMaker, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -167,7 +167,7 @@ func TestJWTAuth_WrongSecret(t *testing.T) {
 func TestJWTAuth_InvalidTokenString(t *testing.T) {
 	maker := newTestMaker()
 	reached := false
-	handler := JWTAuth(maker)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer not-a-real-jwt")

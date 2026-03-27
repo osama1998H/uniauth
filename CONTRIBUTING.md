@@ -141,7 +141,7 @@ Looking to contribute something meaningful? Check the open issues for items labe
 - [ ] Admin dashboard API
 - [ ] SDKs (TypeScript, Python)
 - [ ] Prometheus metrics endpoint
-- [ ] Horizontal scaling (session clustering)
+- [x] Horizontal scaling (session clustering)
 
 ## License
 
