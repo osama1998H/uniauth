@@ -222,7 +222,7 @@ helm install uniauth ./deployments/helm/uniauth \
 - [ ] Admin dashboard API
 - [ ] TypeScript + Python SDKs
 - [ ] Prometheus metrics
-- [ ] Horizontal scaling guide
+- [x] Horizontal scaling guide (see [docs/horizontal-scaling.md](docs/horizontal-scaling.md))
 
 ## Contributing
 

@@ -4,10 +4,12 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/osama1998h/uniauth/internal/domain"
+	"github.com/osama1998h/uniauth/internal/repository/cache"
 	"github.com/osama1998h/uniauth/internal/service"
 	"github.com/osama1998h/uniauth/pkg/token"
 )
@@ -15,12 +17,16 @@ import (
 type contextKey string
 
 const (
-	ContextKeyUserID contextKey = "user_id"
-	ContextKeyOrgID  contextKey = "org_id"
+	ContextKeyUserID      contextKey = "user_id"
+	ContextKeyOrgID       contextKey = "org_id"
+	ContextKeyTokenID     contextKey = "token_id"
+	ContextKeyTokenExpiry contextKey = "token_expiry"
 )
 
 // JWTAuth extracts and validates a Bearer JWT from the Authorization header.
-func JWTAuth(maker *token.Maker) func(next http.Handler) http.Handler {
+// It also checks the token blacklist in Redis so that revoked tokens are rejected
+// across all instances (required for correct horizontal scaling behaviour).
+func JWTAuth(maker *token.Maker, c *cache.Cache) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenStr := extractBearer(r)
@@ -35,8 +41,18 @@ func JWTAuth(maker *token.Maker) func(next http.Handler) http.Handler {
 				return
 			}
 
+			// Check Redis blacklist. If Redis is unavailable we allow the request
+			// (graceful degradation) — the same pattern used by the rate limiter.
+			blacklisted, err := c.IsTokenBlacklisted(r.Context(), claims.TokenID.String())
+			if err == nil && blacklisted {
+				writeUnauthorized(w, "token has been revoked")
+				return
+			}
+
 			ctx := context.WithValue(r.Context(), ContextKeyUserID, claims.UserID)
 			ctx = context.WithValue(ctx, ContextKeyOrgID, claims.OrgID)
+			ctx = context.WithValue(ctx, ContextKeyTokenID, claims.TokenID)
+			ctx = context.WithValue(ctx, ContextKeyTokenExpiry, claims.ExpiresAt.Time)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -78,6 +94,18 @@ func GetUserID(ctx context.Context) (uuid.UUID, bool) {
 func GetOrgID(ctx context.Context) (uuid.UUID, bool) {
 	id, ok := ctx.Value(ContextKeyOrgID).(uuid.UUID)
 	return id, ok
+}
+
+// GetTokenID retrieves the JWT token ID (jti) from the context.
+func GetTokenID(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(ContextKeyTokenID).(uuid.UUID)
+	return id, ok
+}
+
+// GetTokenExpiry retrieves the JWT expiry time from the context.
+func GetTokenExpiry(ctx context.Context) (time.Time, bool) {
+	t, ok := ctx.Value(ContextKeyTokenExpiry).(time.Time)
+	return t, ok
 }
 
 func extractBearer(r *http.Request) string {
