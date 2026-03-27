@@ -27,6 +27,8 @@ func handleServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "not found")
 	case errors.Is(err, domain.ErrAlreadyExists):
 		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, domain.ErrServiceUnavailable):
+		writeError(w, http.StatusServiceUnavailable, "service temporarily unavailable")
 	case errors.Is(err, domain.ErrInvalidCredentials):
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 	case errors.Is(err, domain.ErrUnauthorized):

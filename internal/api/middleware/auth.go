@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -9,10 +10,13 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/osama1998h/uniauth/internal/domain"
-	"github.com/osama1998h/uniauth/internal/repository/cache"
 	"github.com/osama1998h/uniauth/internal/service"
 	"github.com/osama1998h/uniauth/pkg/token"
 )
+
+type tokenBlacklistChecker interface {
+	IsTokenBlacklisted(ctx context.Context, tokenID string) (bool, error)
+}
 
 type contextKey string
 
@@ -27,7 +31,7 @@ const (
 // JWTAuth extracts and validates a Bearer JWT from the Authorization header.
 // It also checks the token blacklist in Redis so that revoked tokens are rejected
 // across all instances (required for correct horizontal scaling behaviour).
-func JWTAuth(maker *token.Maker, c *cache.Cache) func(next http.Handler) http.Handler {
+func JWTAuth(maker *token.Maker, c tokenBlacklistChecker, logger *slog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenStr := extractBearer(r)
@@ -42,12 +46,17 @@ func JWTAuth(maker *token.Maker, c *cache.Cache) func(next http.Handler) http.Ha
 				return
 			}
 
-			// Check Redis blacklist. If the cache is nil (e.g. in tests) or Redis
-			// is unavailable, allow the request (graceful degradation — same
-			// pattern used by the rate limiter).
+			// Allow a nil checker in tests, but fail closed on runtime Redis errors.
 			if c != nil {
 				blacklisted, err := c.IsTokenBlacklisted(r.Context(), claims.TokenID.String())
-				if err == nil && blacklisted {
+				if err != nil {
+					if logger != nil {
+						logger.WarnContext(r.Context(), "authentication unavailable during token blacklist lookup", "path", r.URL.Path, "error", err)
+					}
+					writeServiceUnavailable(w, "authentication temporarily unavailable")
+					return
+				}
+				if blacklisted {
 					writeUnauthorized(w, "token has been revoked")
 					return
 				}
@@ -123,5 +132,11 @@ func extractBearer(r *http.Request) string {
 func writeUnauthorized(w http.ResponseWriter, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
+	_, _ = w.Write([]byte(`{"error":"` + msg + `"}`))
+}
+
+func writeServiceUnavailable(w http.ResponseWriter, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusServiceUnavailable)
 	_, _ = w.Write([]byte(`{"error":"` + msg + `"}`))
 }

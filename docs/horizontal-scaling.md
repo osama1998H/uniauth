@@ -44,10 +44,11 @@ REDIS_URL=redis://:password@your-redis-host:6379/0
 ```
 
 Redis is used for rate limiting and access token blacklisting. If Redis is temporarily unavailable:
-- Rate limiting is **skipped** (requests are allowed — graceful degradation)
-- Blacklist checks are **skipped** (already-revoked tokens may be accepted until Redis recovers)
+- Public auth routes under `/api/v1/auth/*` fail closed with `503 Service Unavailable`
+- JWT-protected routes fail closed during blacklist checks with `503 Service Unavailable`
+- Non-auth public routes such as `/health`, `/ready`, and `/swagger/*` remain available
 
-This means Redis is **not** a hard availability dependency, but it should be highly available in production.
+This means Redis is part of UniAuth's auth control plane. It should be highly available in production, and `/ready` should be used to remove unhealthy instances from rotation quickly.
 
 ### Shared JWT Secret
 
@@ -74,11 +75,11 @@ When a user logs out or changes their password, UniAuth:
 1. Revokes the session in PostgreSQL (invalidates the refresh token for all instances)
 2. Blacklists the current access token JTI in Redis with the remaining TTL
 
-The blacklist entry is checked by the `JWTAuth` middleware on every subsequent authenticated request across all instances. This ensures that a user who logs out cannot continue using their short-lived access token on a different instance.
+The blacklist entry is checked by the `JWTAuth` middleware on every subsequent authenticated request across all instances. This ensures that a user who logs out cannot continue using their short-lived access token on a different instance. If Redis cannot be reached for that check, UniAuth now rejects the request with `503` instead of failing open.
 
 ### Access Token Expiry
 
-Access tokens have a short TTL (default 15 minutes). Even without Redis, a blacklisted token expires naturally within that window. The Redis blacklist entry TTL matches the remaining token lifetime — it cleans itself up automatically.
+Access tokens still have a short TTL (default 15 minutes), and the Redis blacklist entry TTL matches the remaining token lifetime so it cleans itself up automatically. During a Redis outage, protected requests fail closed until Redis recovers rather than accepting potentially revoked access tokens.
 
 ---
 

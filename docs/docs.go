@@ -326,6 +326,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
+                    },
+                    "503": {
+                        "description": "Rate limiting temporarily unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
                     }
                 }
             }
@@ -383,6 +389,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
+                    },
+                    "503": {
+                        "description": "Authentication temporarily unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
                     }
                 }
             }
@@ -417,6 +429,12 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Authentication temporarily unavailable",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
@@ -477,6 +495,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
+                    },
+                    "503": {
+                        "description": "Authentication temporarily unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
                     }
                 }
             }
@@ -529,6 +553,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
+                    },
+                    "503": {
+                        "description": "Rate limiting temporarily unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
                     }
                 }
             }
@@ -566,6 +596,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Rate limiting temporarily unavailable",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
@@ -621,6 +657,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
+                    },
+                    "503": {
+                        "description": "Rate limiting temporarily unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
                     }
                 }
             }
@@ -670,6 +712,12 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Rate limiting temporarily unavailable",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
