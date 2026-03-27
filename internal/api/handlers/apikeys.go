@@ -22,7 +22,15 @@ func NewAPIKeyHandler(apiKeySvc *service.APIKeyService) *APIKeyHandler {
 }
 
 // ListAPIKeys godoc
-// GET /api/v1/api-keys
+// @Summary     List API keys
+// @Description Returns all API keys for the authenticated user's organization. Key prefixes are shown; full keys are never returned after creation.
+// @Tags        API Keys
+// @Produce     json
+// @Success     200 {object} APIKeyListResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/api-keys [get]
 func (h *APIKeyHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrgID(r.Context())
 	if !ok {
@@ -44,7 +52,18 @@ func (h *APIKeyHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateAPIKey godoc
-// POST /api/v1/api-keys
+// @Summary     Create an API key
+// @Description Creates a new API key. The full plaintext key is returned only in this response — store it securely.
+// @Tags        API Keys
+// @Accept      json
+// @Produce     json
+// @Param       body body CreateAPIKeyRequest true "API key configuration"
+// @Success     201 {object} CreateAPIKeyResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/api-keys [post]
 func (h *APIKeyHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrgID(r.Context())
 	if !ok {
@@ -81,7 +100,18 @@ func (h *APIKeyHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 }
 
 // RevokeAPIKey godoc
-// DELETE /api/v1/api-keys/{id}
+// @Summary     Revoke an API key
+// @Description Immediately revokes the specified API key. All subsequent requests using this key will be rejected.
+// @Tags        API Keys
+// @Produce     json
+// @Param       id path string true "API Key UUID"
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     400 {object} SwaggerErrorResponse "Invalid UUID"
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     404 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/api-keys/{id} [delete]
 func (h *APIKeyHandler) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	keyID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {

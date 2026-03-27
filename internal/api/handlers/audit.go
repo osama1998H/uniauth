@@ -23,7 +23,21 @@ func NewAuditHandler(store *db.Store) *AuditHandler {
 }
 
 // ListAuditLogs godoc
-// GET /api/v1/audit
+// @Summary     List audit logs
+// @Description Returns audit log entries for the authenticated user's organization, with optional filters.
+// @Tags        Audit
+// @Produce     json
+// @Param       limit   query int    false "Maximum number of results"
+// @Param       offset  query int    false "Number of results to skip"
+// @Param       user_id query string false "Filter by user UUID"
+// @Param       action  query string false "Filter by action (e.g. user.login)"
+// @Param       since   query string false "Filter entries after this timestamp (RFC3339)"
+// @Param       until   query string false "Filter entries before this timestamp (RFC3339)"
+// @Success     200 {object} AuditListResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/audit [get]
 func (h *AuditHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrgID(r.Context())
 	if !ok {

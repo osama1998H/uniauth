@@ -54,6 +54,9 @@ generate:
 	@echo "==> Running go generate..."
 	go generate ./...
 
+swag: ## Generate Swagger docs from annotations
+	$(shell go env GOPATH)/bin/swag init -g cmd/server/main.go -o docs/ --parseDependency --parseInternal
+
 sqlc:
 	sqlc generate
 
@@ -73,6 +76,7 @@ docker-down:
 setup: ## Install development tools
 	go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	go install golang.org/x/tools/cmd/goimports@latest
+	go install github.com/swaggo/swag/cmd/swag@latest
 
 clean:
 	rm -rf bin/

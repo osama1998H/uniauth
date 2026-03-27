@@ -18,7 +18,16 @@ func NewOrgHandler(orgSvc *service.OrgService) *OrgHandler {
 }
 
 // GetMyOrg godoc
-// GET /api/v1/organizations/me
+// @Summary     Get current organization
+// @Description Returns the organization associated with the authenticated user's JWT.
+// @Tags        Organizations
+// @Produce     json
+// @Success     200 {object} OrgView
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     404 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/organizations/me [get]
 func (h *OrgHandler) GetMyOrg(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrgID(r.Context())
 	if !ok {
@@ -36,7 +45,18 @@ func (h *OrgHandler) GetMyOrg(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateMyOrg godoc
-// PUT /api/v1/organizations/me
+// @Summary     Update current organization
+// @Description Updates the name of the authenticated user's organization.
+// @Tags        Organizations
+// @Accept      json
+// @Produce     json
+// @Param       body body UpdateOrgRequest true "New organization name"
+// @Success     200 {object} OrgView
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/organizations/me [put]
 func (h *OrgHandler) UpdateMyOrg(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrgID(r.Context())
 	if !ok {

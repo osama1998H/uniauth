@@ -1,6 +1,56 @@
+// @title           UniAuth API
+// @version         1.0
+// @description     Self-hosted, multi-tenant authentication and authorization service. Provides JWT-based auth, RBAC, API keys, audit logging, and webhook event delivery.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   UniAuth Support
+// @contact.url    https://github.com/osama1998h/uniauth
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /
+
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                 Type "Bearer " followed by your JWT access token. Example: "Bearer eyJhbGci..."
+
+// @securityDefinitions.apikey  ApiKeyAuth
+// @in                          header
+// @name                        X-API-Key
+// @description                 API key for service-to-service authentication.
+
+// @tag.name         Health
+// @tag.description  Liveness and readiness probes
+
+// @tag.name         Auth
+// @tag.description  Registration, login, token management, and password operations
+
+// @tag.name         Users
+// @tag.description  User profile and user management within an organization
+
+// @tag.name         Organizations
+// @tag.description  Organization profile management
+
+// @tag.name         Roles
+// @tag.description  RBAC role and permission management
+
+// @tag.name         API Keys
+// @tag.description  API key lifecycle management
+
+// @tag.name         Audit
+// @tag.description  Audit log retrieval
+
+// @tag.name         Webhooks
+// @tag.description  Webhook endpoint management
+
 package main
 
 import (
+	_ "github.com/osama1998h/uniauth/docs"
+
 	"context"
 	"fmt"
 	"log/slog"

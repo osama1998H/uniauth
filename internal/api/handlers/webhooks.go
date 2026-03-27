@@ -23,7 +23,15 @@ func NewWebhookHandler(store *db.Store) *WebhookHandler {
 }
 
 // ListWebhooks godoc
-// GET /api/v1/webhooks
+// @Summary     List webhooks
+// @Description Returns all webhook endpoints configured for the authenticated user's organization.
+// @Tags        Webhooks
+// @Produce     json
+// @Success     200 {object} WebhookListResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/webhooks [get]
 func (h *WebhookHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrgID(r.Context())
 	if !ok {
@@ -45,7 +53,18 @@ func (h *WebhookHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateWebhook godoc
-// POST /api/v1/webhooks
+// @Summary     Create a webhook
+// @Description Registers a new webhook endpoint. The HMAC signing secret is returned only in this response — store it securely.
+// @Tags        Webhooks
+// @Accept      json
+// @Produce     json
+// @Param       body body CreateWebhookRequest true "Webhook configuration"
+// @Success     201 {object} CreateWebhookResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/webhooks [post]
 func (h *WebhookHandler) CreateWebhook(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrgID(r.Context())
 	if !ok {
@@ -80,7 +99,20 @@ func (h *WebhookHandler) CreateWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateWebhook godoc
-// PUT /api/v1/webhooks/{id}
+// @Summary     Update a webhook
+// @Description Updates the URL, event subscriptions, and/or active status of a webhook.
+// @Tags        Webhooks
+// @Accept      json
+// @Produce     json
+// @Param       id   path string              true "Webhook UUID"
+// @Param       body body UpdateWebhookRequest true "Fields to update"
+// @Success     200 {object} WebhookView
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     404 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/webhooks/{id} [put]
 func (h *WebhookHandler) UpdateWebhook(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -108,7 +140,18 @@ func (h *WebhookHandler) UpdateWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteWebhook godoc
-// DELETE /api/v1/webhooks/{id}
+// @Summary     Delete a webhook
+// @Description Permanently removes the specified webhook endpoint.
+// @Tags        Webhooks
+// @Produce     json
+// @Param       id path string true "Webhook UUID"
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     400 {object} SwaggerErrorResponse "Invalid UUID"
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     404 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/webhooks/{id} [delete]
 func (h *WebhookHandler) DeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {

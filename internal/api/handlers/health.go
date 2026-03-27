@@ -18,12 +18,25 @@ func NewHealthHandler(store *db.Store, redisCache *cache.Cache) *HealthHandler {
 	return &HealthHandler{store: store, cache: redisCache}
 }
 
-// Live returns 200 OK — used for Kubernetes liveness probe.
+// Live godoc
+// @Summary     Liveness probe
+// @Description Returns 200 OK when the server process is running. Used by Kubernetes liveness probes.
+// @Tags        Health
+// @Produce     json
+// @Success     200 {object} map[string]string "ok"
+// @Router      /health [get]
 func (h *HealthHandler) Live(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// Ready checks database and Redis connectivity — used for readiness probe.
+// Ready godoc
+// @Summary     Readiness probe
+// @Description Checks database and Redis connectivity. Returns 503 if either dependency is unavailable.
+// @Tags        Health
+// @Produce     json
+// @Success     200 {object} HealthReadyResponse
+// @Failure     503 {object} HealthReadyResponse
+// @Router      /ready [get]
 func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	checks := map[string]string{
 		"database": "ok",
