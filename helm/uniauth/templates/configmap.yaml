@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "uniauth.configMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "uniauth.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  PORT: {{ .Values.config.port | quote }}
+  ACCESS_TOKEN_DURATION: {{ .Values.config.accessTokenDuration | quote }}
+  REFRESH_TOKEN_DURATION: {{ .Values.config.refreshTokenDuration | quote }}
+  RATE_LIMIT_PER_MINUTE: {{ .Values.config.rateLimitPerMinute | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+  {{- if .Values.config.smtpHost }}
+  SMTP_HOST: {{ .Values.config.smtpHost | quote }}
+  {{- end }}
+  {{- if .Values.config.smtpPort }}
+  SMTP_PORT: {{ .Values.config.smtpPort | quote }}
+  {{- end }}
+  {{- if .Values.config.smtpFrom }}
+  SMTP_FROM: {{ .Values.config.smtpFrom | quote }}
+  {{- end }}

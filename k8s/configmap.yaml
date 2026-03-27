@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: uniauth-config
+  namespace: uniauth
+  labels:
+    app.kubernetes.io/name: uniauth
+    app.kubernetes.io/component: config
+data:
+  ENVIRONMENT: "production"
+  PORT: "8080"
+  ACCESS_TOKEN_DURATION: "15m"
+  REFRESH_TOKEN_DURATION: "168h"
+  RATE_LIMIT_PER_MINUTE: "60"
+  CORS_ORIGINS: "*"
+  # Uncomment and set SMTP values to enable email delivery
+  # SMTP_HOST: "smtp.example.com"
+  # SMTP_PORT: "587"
+  # SMTP_FROM: "noreply@example.com"

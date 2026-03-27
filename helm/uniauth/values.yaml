@@ -1,0 +1,115 @@
+# Default values for uniauth.
+# Override these values in your own values file or with --set flags.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/osama1998h/uniauth
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Application configuration — non-sensitive values loaded as a ConfigMap
+config:
+  environment: production
+  port: "8080"
+  accessTokenDuration: "15m"
+  refreshTokenDuration: "168h"
+  rateLimitPerMinute: "60"
+  corsOrigins: "*"
+  # Optional SMTP configuration (leave empty to print emails to stdout)
+  smtpHost: ""
+  smtpPort: ""
+  smtpFrom: ""
+
+# Sensitive credentials — stored in a Kubernetes Secret
+secrets:
+  # Set create: true to have the chart manage the Secret.
+  # For production, set create: false and provide existingSecret instead
+  # (e.g. via External Secrets Operator, Vault Agent, or AWS Secrets Manager CSI).
+  create: true
+  databaseUrl: ""    # postgres://user:pass@host:5432/uniauth?sslmode=require
+  redisUrl: ""       # redis://:password@host:6379/0
+  jwtSecret: ""      # minimum 32 characters
+  smtpUsername: ""
+  smtpPassword: ""
+
+  # Reference an externally-managed Secret instead of creating one.
+  # When set, the 'create' field is ignored.
+  existingSecret: ""
+  existingSecretKeys:
+    databaseUrl: DATABASE_URL
+    redisUrl: REDIS_URL
+    jwtSecret: JWT_SECRET
+    smtpUsername: SMTP_USERNAME
+    smtpPassword: SMTP_PASSWORD
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534  # nobody
+  fsGroup: 65534
+
+containerSecurityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: uniauth.example.com
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: false
+    secretName: uniauth-tls
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  cpuUtilization: 70
+  memoryUtilization: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Must be greater than the app's 30s shutdown grace period
+terminationGracePeriodSeconds: 35
+
+# Node scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Spread pods across nodes for HA
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels: {}  # filled in by _helpers.tpl at render time

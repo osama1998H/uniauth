@@ -1,0 +1,37 @@
+UniAuth has been deployed!
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Access the service:
+{{- if .Values.ingress.enabled }}
+  URL: http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  Run: kubectl get svc -n {{ .Release.Namespace }} {{ include "uniauth.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+{{- else }}
+  Port-forward for local access:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "uniauth.fullname" . }} 8080:{{ .Values.service.port }}
+  Then visit: http://localhost:8080
+{{- end }}
+
+Health checks:
+  Liveness:  GET /health
+  Readiness: GET /ready
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Scaling:
+{{- if .Values.hpa.enabled }}
+  HPA is ENABLED — auto-scales between {{ .Values.hpa.minReplicas }} and {{ .Values.hpa.maxReplicas }} replicas.
+  CPU target: {{ .Values.hpa.cpuUtilization }}% | Memory target: {{ .Values.hpa.memoryUtilization }}%
+{{- else }}
+  HPA is disabled — running {{ .Values.replicaCount }} replicas.
+  Enable with: --set hpa.enabled=true
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMPORTANT: Ensure all instances share the same JWT_SECRET, DATABASE_URL, and REDIS_URL.
+A mismatch in JWT_SECRET will invalidate all active tokens immediately.

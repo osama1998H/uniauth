@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uniauth
+  namespace: uniauth
+  labels:
+    app.kubernetes.io/name: uniauth
+    app.kubernetes.io/component: server
+spec:
+  # Replica count managed by HPA when hpa.yaml is applied.
+  # Set an explicit count here if not using HPA.
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: uniauth
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0   # zero-downtime rolling deploys
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: uniauth
+        app.kubernetes.io/component: server
+    spec:
+      serviceAccountName: uniauth
+      # Must exceed the app's 30s graceful shutdown window
+      terminationGracePeriodSeconds: 35
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534  # nobody
+        fsGroup: 65534
+      # Spread pods across nodes for high availability
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: uniauth
+      containers:
+        - name: uniauth
+          image: ghcr.io/osama1998h/uniauth:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          envFrom:
+            - configMapRef:
+                name: uniauth-config
+            - secretRef:
+                name: uniauth-credentials
+          # startupProbe: allows up to 150s for startup
+          # (DB connection + golang-migrate advisory lock + migration run)
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 3
+          # readinessProbe: removes pod from load balancer if PG or Redis is unreachable
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
