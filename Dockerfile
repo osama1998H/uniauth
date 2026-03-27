@@ -1,36 +1,23 @@
-# Dockerfile
+# ─── Build stage ─────────────────────────────────────────────────────────────
+FROM golang:1.24-alpine AS builder
 
-# Use the official Python image with a slimmed-down version
-FROM python:3.10-slim
+RUN apk add --no-cache git ca-certificates
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/
-
-# Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y netcat-openbsd && \
-    rm -rf /var/lib/apt/lists/*
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Copy and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the application code
 COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o uniauth ./cmd/server
 
-# Expose port 8000
-EXPOSE 8000
+# ─── Runtime stage ───────────────────────────────────────────────────────────
+FROM scratch
 
-# Copy entrypoint script and make it executable
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /app/uniauth /uniauth
+COPY --from=builder /app/migrations /migrations
 
-# Set entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
+EXPOSE 8080
 
-# Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+ENTRYPOINT ["/uniauth"]

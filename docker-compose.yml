@@ -1,47 +1,57 @@
 services:
-  web:
+  app:
     build: .
-    container_name: uniauth_web
-    volumes:
-      - .:/app
+    container_name: uniauth
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
-      - db
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
-      - POSTGRES_SERVER=db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=uniauth_db
-      - SECRET_KEY=your-secret-key
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
-  db:
-    image: postgres:13
-    container_name: uniauth_db
+      DATABASE_URL: postgres://uniauth:uniauth@postgres:5432/uniauth?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: change-me-in-production-use-a-long-random-string
+      ENVIRONMENT: development
+      PORT: 8080
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: uniauth_postgres
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=uniauth_db
+      POSTGRES_USER: uniauth
+      POSTGRES_PASSWORD: uniauth
+      POSTGRES_DB: uniauth
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uniauth"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
+    container_name: uniauth_redis
     ports:
       - "6379:6379"
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Optional: email testing (dev only)
+  mailhog:
+    image: mailhog/mailhog
+    container_name: uniauth_mailhog
     ports:
-      - "5050:80"
-    depends_on:
-      - db
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI at http://localhost:8025
+
 volumes:
   postgres_data:
