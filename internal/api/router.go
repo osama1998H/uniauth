@@ -8,6 +8,8 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+
 	"github.com/osama1998h/uniauth/internal/api/handlers"
 	"github.com/osama1998h/uniauth/internal/api/middleware"
 	"github.com/osama1998h/uniauth/internal/config"
@@ -65,6 +67,11 @@ func NewRouter(
 	// Health
 	r.Get("/health", healthH.Live)
 	r.Get("/ready", healthH.Ready)
+
+	// Swagger UI
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {

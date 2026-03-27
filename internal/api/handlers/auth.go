@@ -18,7 +18,17 @@ func NewAuthHandler(authSvc *service.AuthService) *AuthHandler {
 }
 
 // Register godoc
-// POST /api/v1/auth/register
+// @Summary     Register a new organization and admin user
+// @Description Creates a new organization and its first admin user in a single atomic operation.
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       body body RegisterRequest true "Registration details"
+// @Success     201 {object} RegisterResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     409 {object} SwaggerErrorResponse "Organization or email already exists"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Router      /api/v1/auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		OrgName  string  `json:"org_name"`
@@ -56,7 +66,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // Login godoc
-// POST /api/v1/auth/login
+// @Summary     Authenticate user
+// @Description Validates credentials and returns a JWT access token and a refresh token.
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       body body LoginRequest true "Login credentials"
+// @Success     200 {object} TokenPairResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse "Invalid credentials"
+// @Failure     403 {object} SwaggerErrorResponse "User or organization inactive"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Router      /api/v1/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		OrgSlug  string `json:"org_slug"`
@@ -97,7 +118,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // Refresh godoc
-// POST /api/v1/auth/refresh
+// @Summary     Refresh access token
+// @Description Exchanges a valid refresh token for a new token pair. The old refresh token is invalidated.
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       body body RefreshRequest true "Refresh token"
+// @Success     200 {object} TokenPairResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse "Token invalid or expired"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Router      /api/v1/auth/refresh [post]
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RefreshToken string `json:"refresh_token"`
@@ -125,7 +156,18 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 // Logout godoc
-// POST /api/v1/auth/logout
+// @Summary     Logout current session
+// @Description Revokes the provided refresh token and blacklists the current access token.
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       body body LogoutRequest true "Refresh token to revoke"
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RefreshToken string `json:"refresh_token"`
@@ -147,7 +189,15 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // LogoutAll godoc
-// POST /api/v1/auth/logout-all
+// @Summary     Logout all sessions
+// @Description Revokes all active sessions for the authenticated user and blacklists the current access token.
+// @Tags        Auth
+// @Produce     json
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/auth/logout-all [post]
 func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -167,7 +217,15 @@ func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 }
 
 // RequestPasswordReset godoc
-// POST /api/v1/auth/password/reset-request
+// @Summary     Request a password reset email
+// @Description Sends a password reset link to the user's email. Always returns 200 to prevent email enumeration.
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       body body ResetRequestBody true "Organization slug and email"
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Router      /api/v1/auth/password/reset-request [post]
 func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		OrgSlug string `json:"org_slug"`
@@ -187,7 +245,17 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 }
 
 // ConfirmPasswordReset godoc
-// POST /api/v1/auth/password/reset-confirm
+// @Summary     Confirm a password reset
+// @Description Validates the one-time reset token and sets a new password.
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       body body ResetConfirmBody true "Reset token and new password"
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse "Token invalid or expired"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Router      /api/v1/auth/password/reset-confirm [post]
 func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Token    string `json:"token"`
@@ -211,7 +279,18 @@ func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 }
 
 // ChangePassword godoc
-// PUT /api/v1/auth/password/change
+// @Summary     Change password
+// @Description Changes the authenticated user's password. Requires the current password for verification.
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       body body ChangePasswordBody true "Current and new passwords"
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse "Wrong current password"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/auth/password/change [put]
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

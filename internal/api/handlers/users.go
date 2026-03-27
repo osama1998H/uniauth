@@ -22,7 +22,15 @@ func NewUserHandler(userSvc *service.UserService) *UserHandler {
 }
 
 // GetMe godoc
-// GET /api/v1/users/me
+// @Summary     Get current user profile
+// @Description Returns the profile of the currently authenticated user.
+// @Tags        Users
+// @Produce     json
+// @Success     200 {object} UserView
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/users/me [get]
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -40,7 +48,19 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateMe godoc
-// PUT /api/v1/users/me
+// @Summary     Update current user profile
+// @Description Updates the full name and/or email of the currently authenticated user.
+// @Tags        Users
+// @Accept      json
+// @Produce     json
+// @Param       body body UpdateMeRequest true "Fields to update"
+// @Success     200 {object} UserView
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     409 {object} SwaggerErrorResponse "Email already in use"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/users/me [put]
 func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -70,7 +90,17 @@ func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListUsers godoc
-// GET /api/v1/users
+// @Summary     List users in organization
+// @Description Returns a paginated list of all users in the authenticated user's organization.
+// @Tags        Users
+// @Produce     json
+// @Param       limit  query int false "Maximum number of results (default 50, max 100)"
+// @Param       offset query int false "Number of results to skip"
+// @Success     200 {object} UserListResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/users [get]
 func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrgID(r.Context())
 	if !ok {
@@ -98,7 +128,18 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUser godoc
-// GET /api/v1/users/{id}
+// @Summary     Get user by ID
+// @Description Returns the profile of a specific user within the organization.
+// @Tags        Users
+// @Produce     json
+// @Param       id path string true "User UUID"
+// @Success     200 {object} UserView
+// @Failure     400 {object} SwaggerErrorResponse "Invalid UUID"
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     404 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/users/{id} [get]
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -116,7 +157,18 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeactivateUser godoc
-// DELETE /api/v1/users/{id}
+// @Summary     Deactivate a user
+// @Description Marks the specified user as inactive. Deactivated users cannot log in.
+// @Tags        Users
+// @Produce     json
+// @Param       id path string true "User UUID"
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     400 {object} SwaggerErrorResponse "Invalid UUID"
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     404 {object} SwaggerErrorResponse
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/users/{id} [delete]
 func (h *UserHandler) DeactivateUser(w http.ResponseWriter, r *http.Request) {
 	actorID, ok := middleware.GetUserID(r.Context())
 	if !ok {
