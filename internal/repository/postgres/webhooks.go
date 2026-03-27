@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/osama1998h/uniauth/internal/domain"
 )
 
 type Webhook struct {
@@ -36,7 +38,7 @@ func (s *Store) GetWebhookByID(ctx context.Context, id uuid.UUID) (*Webhook, err
 	)
 	w, err := scanWebhook(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, domain.ErrNotFound
 	}
 	return w, err
 }
@@ -95,14 +97,20 @@ func (s *Store) UpdateWebhook(ctx context.Context, id, orgID uuid.UUID, url *str
 	)
 	w, err := scanWebhook(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, domain.ErrNotFound
 	}
 	return w, err
 }
 
 func (s *Store) DeleteWebhook(ctx context.Context, id, orgID uuid.UUID) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM webhooks WHERE id = $1 AND org_id = $2`, id, orgID)
-	return err
+	tag, err := s.pool.Exec(ctx, `DELETE FROM webhooks WHERE id = $1 AND org_id = $2`, id, orgID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 func scanWebhook(row pgx.Row) (*Webhook, error) {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/google/uuid"
+
 	"github.com/osama1998h/uniauth/internal/domain"
 	db "github.com/osama1998h/uniauth/internal/repository/postgres"
 )
@@ -29,6 +31,6 @@ func (a *AuditService) Log(log *domain.AuditLog) {
 }
 
 // List returns paginated audit logs for an organization.
-func (a *AuditService) List(ctx context.Context, orgID interface{ String() string }, filter domain.AuditFilter) ([]*domain.AuditLog, error) {
-	return nil, nil // implemented via handler calling store directly
+func (a *AuditService) List(ctx context.Context, orgID uuid.UUID, filter domain.AuditFilter) ([]*domain.AuditLog, error) {
+	return a.store.ListAuditLogs(ctx, orgID, filter)
 }

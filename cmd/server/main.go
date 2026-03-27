@@ -59,7 +59,7 @@ func main() {
 		logger.Error("failed to connect to redis", "error", err)
 		os.Exit(1)
 	}
-	defer redisCache.Close()
+	defer func() { _ = redisCache.Close() }()
 	logger.Info("redis connected")
 
 	// JWT secret validation
@@ -109,7 +109,7 @@ func runMigrations(databaseURL string, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("create migrator: %w", err)
 	}
-	defer m.Close()
+	defer func() { _, _ = m.Close() }()
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("run migrations: %w", err)
