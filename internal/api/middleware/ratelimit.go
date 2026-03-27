@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -18,7 +19,7 @@ func RateLimit(redisCache rateLimitCounter, requestsPerMinute int) func(next htt
 			ip := ClientIP(r)
 			key := fmt.Sprintf("rl:%s", ip)
 
-			if redisCache == nil {
+			if isNilRateLimitCounter(redisCache) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -40,5 +41,19 @@ func RateLimit(redisCache rateLimitCounter, requestsPerMinute int) func(next htt
 
 			next.ServeHTTP(w, r)
 		})
+	}
+}
+
+func isNilRateLimitCounter(counter rateLimitCounter) bool {
+	if counter == nil {
+		return true
+	}
+
+	value := reflect.ValueOf(counter)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
 	}
 }

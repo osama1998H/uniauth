@@ -2,8 +2,10 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -106,14 +108,18 @@ func (s *Store) DeactivateUser(ctx context.Context, orgID, id uuid.UUID) error {
 
 func scanUser(row pgx.Row) (*domain.User, error) {
 	u := &domain.User{}
+	var emailVerifiedAt sql.NullTime
+	var lastLoginAt sql.NullTime
 	err := row.Scan(
 		&u.ID, &u.OrgID, &u.Email, &u.HashedPassword, &u.FullName,
-		&u.IsActive, &u.IsSuperuser, &u.EmailVerifiedAt, &u.LastLoginAt,
+		&u.IsActive, &u.IsSuperuser, &emailVerifiedAt, &lastLoginAt,
 		&u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan user: %w", err)
 	}
+	u.EmailVerifiedAt = nullTimePtr(emailVerifiedAt)
+	u.LastLoginAt = nullTimePtr(lastLoginAt)
 	return u, nil
 }
 
@@ -121,14 +127,27 @@ func collectUsers(rows pgx.Rows) ([]*domain.User, error) {
 	var users []*domain.User
 	for rows.Next() {
 		u := &domain.User{}
+		var emailVerifiedAt sql.NullTime
+		var lastLoginAt sql.NullTime
 		if err := rows.Scan(
 			&u.ID, &u.OrgID, &u.Email, &u.HashedPassword, &u.FullName,
-			&u.IsActive, &u.IsSuperuser, &u.EmailVerifiedAt, &u.LastLoginAt,
+			&u.IsActive, &u.IsSuperuser, &emailVerifiedAt, &lastLoginAt,
 			&u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan user row: %w", err)
 		}
+		u.EmailVerifiedAt = nullTimePtr(emailVerifiedAt)
+		u.LastLoginAt = nullTimePtr(lastLoginAt)
 		users = append(users, u)
 	}
 	return users, rows.Err()
+}
+
+func nullTimePtr(value sql.NullTime) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+
+	t := value.Time
+	return &t
 }

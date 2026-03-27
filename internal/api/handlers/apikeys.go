@@ -23,11 +23,12 @@ func NewAPIKeyHandler(apiKeySvc *service.APIKeyService) *APIKeyHandler {
 
 // ListAPIKeys godoc
 // @Summary     List API keys
-// @Description Returns all API keys for the authenticated user's organization. Key prefixes are shown; full keys are never returned after creation.
+// @Description Returns all API keys for the authenticated user's organization. Key prefixes are shown; full keys are never returned after creation. Requires the `apikeys:read` permission.
 // @Tags        API Keys
 // @Produce     json
 // @Success     200 {object} APIKeyListResponse
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/api-keys [get]
@@ -53,7 +54,7 @@ func (h *APIKeyHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 
 // CreateAPIKey godoc
 // @Summary     Create an API key
-// @Description Creates a new API key. The full plaintext key is returned only in this response — store it securely.
+// @Description Creates a new API key. The full plaintext key is returned only in this response — store it securely. Requires the `apikeys:write` permission.
 // @Tags        API Keys
 // @Accept      json
 // @Produce     json
@@ -61,6 +62,7 @@ func (h *APIKeyHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 // @Success     201 {object} CreateAPIKeyResponse
 // @Failure     400 {object} SwaggerErrorResponse
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/api-keys [post]
@@ -101,13 +103,14 @@ func (h *APIKeyHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 
 // RevokeAPIKey godoc
 // @Summary     Revoke an API key
-// @Description Immediately revokes the specified API key. All subsequent requests using this key will be rejected.
+// @Description Immediately revokes the specified API key. All subsequent requests using this key will be rejected. Requires the `apikeys:delete` permission.
 // @Tags        API Keys
 // @Produce     json
 // @Param       id path string true "API Key UUID"
 // @Success     200 {object} SwaggerMessageResponse
 // @Failure     400 {object} SwaggerErrorResponse "Invalid UUID"
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     404 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth

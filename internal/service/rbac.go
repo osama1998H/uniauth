@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -109,16 +110,31 @@ func (s *RBACService) ListUserPermissions(ctx context.Context, userID uuid.UUID)
 	return s.store.ListPermissionsByUser(ctx, userID)
 }
 
-// HasPermission checks if a user has a specific permission.
-func (s *RBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission string) (bool, error) {
-	perms, err := s.store.ListPermissionsByUser(ctx, userID)
+// HasPermission checks if a user has a specific permission within an organization.
+func (s *RBACService) HasPermission(ctx context.Context, orgID, userID uuid.UUID, permission string) (bool, error) {
+	return s.store.UserHasPermission(ctx, orgID, userID, permission)
+}
+
+// Authorize verifies that a user is allowed to perform an action in an organization.
+func (s *RBACService) Authorize(ctx context.Context, orgID, userID uuid.UUID, permission string) error {
+	user, err := s.store.GetUserByID(ctx, orgID, userID)
 	if err != nil {
-		return false, err
-	}
-	for _, p := range perms {
-		if p.Name == permission {
-			return true, nil
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrUnauthorized
 		}
+		return fmt.Errorf("get actor: %w", err)
 	}
-	return false, nil
+
+	if user.IsSuperuser {
+		return nil
+	}
+
+	allowed, err := s.store.UserHasPermission(ctx, orgID, userID, permission)
+	if err != nil {
+		return fmt.Errorf("check permission: %w", err)
+	}
+	if !allowed {
+		return domain.ErrForbidden
+	}
+	return nil
 }

@@ -23,11 +23,12 @@ func NewWebhookHandler(webhookSvc *service.WebhookService) *WebhookHandler {
 
 // ListWebhooks godoc
 // @Summary     List webhooks
-// @Description Returns all webhook endpoints configured for the authenticated user's organization.
+// @Description Returns all webhook endpoints configured for the authenticated user's organization. Requires the `webhooks:read` permission.
 // @Tags        Webhooks
 // @Produce     json
 // @Success     200 {object} WebhookListResponse
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/webhooks [get]
@@ -53,7 +54,7 @@ func (h *WebhookHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 
 // CreateWebhook godoc
 // @Summary     Create a webhook
-// @Description Registers a new webhook endpoint. Webhook URLs must be direct public HTTPS endpoints; localhost, private, link-local, and metadata-style targets are rejected. Redirects are not followed. The HMAC signing secret is returned only in this response — store it securely.
+// @Description Registers a new webhook endpoint. Webhook URLs must be direct public HTTPS endpoints; localhost, private, link-local, and metadata-style targets are rejected. Redirects are not followed. The HMAC signing secret is returned only in this response — store it securely. Requires the `webhooks:write` permission.
 // @Tags        Webhooks
 // @Accept      json
 // @Produce     json
@@ -61,6 +62,7 @@ func (h *WebhookHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 // @Success     201 {object} CreateWebhookResponse
 // @Failure     400 {object} SwaggerErrorResponse "Invalid or unsafe webhook URL"
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/webhooks [post]
@@ -93,7 +95,7 @@ func (h *WebhookHandler) CreateWebhook(w http.ResponseWriter, r *http.Request) {
 
 // UpdateWebhook godoc
 // @Summary     Update a webhook
-// @Description Updates the URL, event subscriptions, and/or active status of a webhook. If a URL is provided, it must be a direct public HTTPS endpoint and redirects will not be followed during delivery.
+// @Description Updates the URL, event subscriptions, and/or active status of a webhook. If a URL is provided, it must be a direct public HTTPS endpoint and redirects will not be followed during delivery. Requires the `webhooks:write` permission.
 // @Tags        Webhooks
 // @Accept      json
 // @Produce     json
@@ -102,6 +104,7 @@ func (h *WebhookHandler) CreateWebhook(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} WebhookView
 // @Failure     400 {object} SwaggerErrorResponse "Invalid or unsafe webhook URL"
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     404 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
@@ -134,13 +137,14 @@ func (h *WebhookHandler) UpdateWebhook(w http.ResponseWriter, r *http.Request) {
 
 // DeleteWebhook godoc
 // @Summary     Delete a webhook
-// @Description Permanently removes the specified webhook endpoint.
+// @Description Permanently removes the specified webhook endpoint. Requires the `webhooks:delete` permission.
 // @Tags        Webhooks
 // @Produce     json
 // @Param       id path string true "Webhook UUID"
 // @Success     200 {object} SwaggerMessageResponse
 // @Failure     400 {object} SwaggerErrorResponse "Invalid UUID"
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     404 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth

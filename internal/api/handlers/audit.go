@@ -24,7 +24,7 @@ func NewAuditHandler(store *db.Store) *AuditHandler {
 
 // ListAuditLogs godoc
 // @Summary     List audit logs
-// @Description Returns audit log entries for the authenticated user's organization, with optional filters.
+// @Description Returns audit log entries for the authenticated user's organization, with optional filters. Requires the `audit:read` permission.
 // @Tags        Audit
 // @Produce     json
 // @Param       limit   query int    false "Maximum number of results"
@@ -35,6 +35,7 @@ func NewAuditHandler(store *db.Store) *AuditHandler {
 // @Param       until   query string false "Filter entries before this timestamp (RFC3339)"
 // @Success     200 {object} AuditListResponse
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/audit [get]

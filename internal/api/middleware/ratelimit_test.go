@@ -147,6 +147,21 @@ func TestRateLimitUsesResolvedClientIP(t *testing.T) {
 	})
 }
 
+func TestRateLimitAllowsTypedNilCounter(t *testing.T) {
+	t.Parallel()
+
+	var counter *fakeRateLimitCounter
+	handler := RateLimit(counter, 10)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rec.Code)
+	}
+}
+
 type fakeRateLimitCounter struct {
 	counts map[string]int64
 	keys   []string

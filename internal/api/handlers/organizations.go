@@ -19,11 +19,12 @@ func NewOrgHandler(orgSvc *service.OrgService) *OrgHandler {
 
 // GetMyOrg godoc
 // @Summary     Get current organization
-// @Description Returns the organization associated with the authenticated user's JWT.
+// @Description Returns the organization associated with the authenticated user's JWT. Requires the `organizations:read` permission.
 // @Tags        Organizations
 // @Produce     json
 // @Success     200 {object} OrgView
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     404 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
@@ -46,7 +47,7 @@ func (h *OrgHandler) GetMyOrg(w http.ResponseWriter, r *http.Request) {
 
 // UpdateMyOrg godoc
 // @Summary     Update current organization
-// @Description Updates the name of the authenticated user's organization.
+// @Description Updates the name of the authenticated user's organization. Requires the `organizations:write` permission.
 // @Tags        Organizations
 // @Accept      json
 // @Produce     json
@@ -54,6 +55,7 @@ func (h *OrgHandler) GetMyOrg(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} OrgView
 // @Failure     400 {object} SwaggerErrorResponse
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/organizations/me [put]

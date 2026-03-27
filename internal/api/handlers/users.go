@@ -101,13 +101,14 @@ func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 
 // ListUsers godoc
 // @Summary     List users in organization
-// @Description Returns a paginated list of all users in the authenticated user's organization.
+// @Description Returns a paginated list of all users in the authenticated user's organization. Requires the `users:read` permission.
 // @Tags        Users
 // @Produce     json
 // @Param       limit  query int false "Maximum number of results (default 50, max 100)"
 // @Param       offset query int false "Number of results to skip"
 // @Success     200 {object} UserListResponse
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/users [get]
@@ -139,13 +140,14 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 // GetUser godoc
 // @Summary     Get user by ID
-// @Description Returns the profile of a specific user within the organization.
+// @Description Returns the profile of a specific user within the organization. Requires the `users:read` permission.
 // @Tags        Users
 // @Produce     json
 // @Param       id path string true "User UUID"
 // @Success     200 {object} UserView
 // @Failure     400 {object} SwaggerErrorResponse "Invalid UUID"
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     404 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
@@ -173,13 +175,14 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 // DeactivateUser godoc
 // @Summary     Deactivate a user
-// @Description Marks the specified user as inactive. Deactivated users cannot log in.
+// @Description Marks the specified user as inactive. Deactivated users cannot log in. Requires the `users:delete` permission.
 // @Tags        Users
 // @Produce     json
 // @Param       id path string true "User UUID"
 // @Success     200 {object} SwaggerMessageResponse
 // @Failure     400 {object} SwaggerErrorResponse "Invalid UUID"
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse
 // @Failure     404 {object} SwaggerErrorResponse
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth

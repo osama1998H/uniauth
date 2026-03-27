@@ -30,7 +30,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all API keys for the authenticated user's organization. Key prefixes are shown; full keys are never returned after creation.",
+                "description": "Returns all API keys for the authenticated user's organization. Key prefixes are shown; full keys are never returned after creation. Requires the ` + "`" + `apikeys:read` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -51,6 +51,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -65,7 +71,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new API key. The full plaintext key is returned only in this response — store it securely.",
+                "description": "Creates a new API key. The full plaintext key is returned only in this response — store it securely. Requires the ` + "`" + `apikeys:write` + "`" + ` permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -106,6 +112,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -122,7 +134,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Immediately revokes the specified API key. All subsequent requests using this key will be rejected.",
+                "description": "Immediately revokes the specified API key. All subsequent requests using this key will be rejected. Requires the ` + "`" + `apikeys:delete` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -158,6 +170,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -180,7 +198,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns audit log entries for the authenticated user's organization, with optional filters.",
+                "description": "Returns audit log entries for the authenticated user's organization, with optional filters. Requires the ` + "`" + `audit:read` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -235,6 +253,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
@@ -660,7 +684,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the organization associated with the authenticated user's JWT.",
+                "description": "Returns the organization associated with the authenticated user's JWT. Requires the ` + "`" + `organizations:read` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -677,6 +701,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
@@ -701,7 +731,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the name of the authenticated user's organization.",
+                "description": "Updates the name of the authenticated user's organization. Requires the ` + "`" + `organizations:write` + "`" + ` permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -742,6 +772,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -758,7 +794,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all roles defined within the authenticated user's organization.",
+                "description": "Returns all roles defined within the authenticated user's organization. Requires the ` + "`" + `roles:read` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -779,6 +815,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -793,7 +835,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new RBAC role within the authenticated user's organization.",
+                "description": "Creates a new RBAC role within the authenticated user's organization. Requires the ` + "`" + `roles:write` + "`" + ` permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -834,6 +876,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "409": {
                         "description": "Role name already exists",
                         "schema": {
@@ -856,7 +904,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all system-level permissions that can be assigned to roles.",
+                "description": "Returns all system-level permissions that can be assigned to roles. Requires the ` + "`" + `roles:read` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -877,6 +925,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -893,7 +947,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the name and/or description of an existing role.",
+                "description": "Updates the name and/or description of an existing role. Requires the ` + "`" + `roles:write` + "`" + ` permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -941,6 +995,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -961,7 +1021,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Permanently deletes a role from the organization.",
+                "description": "Permanently deletes a role from the organization. Requires the ` + "`" + `roles:delete` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -997,6 +1057,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1019,7 +1085,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Replaces the permission set of the specified role with the provided list.",
+                "description": "Replaces the permission set of the specified role with the provided list. Requires the ` + "`" + `roles:write` + "`" + ` permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1067,6 +1133,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1089,7 +1161,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns a paginated list of all users in the authenticated user's organization.",
+                "description": "Returns a paginated list of all users in the authenticated user's organization. Requires the ` + "`" + `users:read` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -1120,6 +1192,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
@@ -1238,7 +1316,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the profile of a specific user within the organization.",
+                "description": "Returns the profile of a specific user within the organization. Requires the ` + "`" + `users:read` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -1274,6 +1352,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1294,7 +1378,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Marks the specified user as inactive. Deactivated users cannot log in.",
+                "description": "Marks the specified user as inactive. Deactivated users cannot log in. Requires the ` + "`" + `users:delete` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -1330,6 +1414,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1352,7 +1442,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Grants the specified role to the target user within the organization.",
+                "description": "Grants the specified role to the target user within the organization. Requires the ` + "`" + `roles:write` + "`" + ` permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1400,6 +1490,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1422,7 +1518,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns all webhook endpoints configured for the authenticated user's organization.",
+                "description": "Returns all webhook endpoints configured for the authenticated user's organization. Requires the ` + "`" + `webhooks:read` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -1443,6 +1539,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1457,7 +1559,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Registers a new webhook endpoint. Webhook URLs must be direct public HTTPS endpoints; localhost, private, link-local, and metadata-style targets are rejected. Redirects are not followed. The HMAC signing secret is returned only in this response — store it securely.",
+                "description": "Registers a new webhook endpoint. Webhook URLs must be direct public HTTPS endpoints; localhost, private, link-local, and metadata-style targets are rejected. Redirects are not followed. The HMAC signing secret is returned only in this response — store it securely. Requires the ` + "`" + `webhooks:write` + "`" + ` permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1498,6 +1600,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1514,7 +1622,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the URL, event subscriptions, and/or active status of a webhook. If a URL is provided, it must be a direct public HTTPS endpoint and redirects will not be followed during delivery.",
+                "description": "Updates the URL, event subscriptions, and/or active status of a webhook. If a URL is provided, it must be a direct public HTTPS endpoint and redirects will not be followed during delivery. Requires the ` + "`" + `webhooks:write` + "`" + ` permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1562,6 +1670,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1582,7 +1696,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Permanently removes the specified webhook endpoint.",
+                "description": "Permanently removes the specified webhook endpoint. Requires the ` + "`" + `webhooks:delete` + "`" + ` permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -1614,6 +1728,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
                         }
