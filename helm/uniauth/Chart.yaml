@@ -1,0 +1,18 @@
+apiVersion: v2
+name: uniauth
+description: Self-hosted multi-tenant authentication and authorization service
+type: application
+version: 0.1.0
+appVersion: "latest"
+home: https://github.com/osama1998H/uniauth
+sources:
+  - https://github.com/osama1998H/uniauth
+keywords:
+  - authentication
+  - authorization
+  - jwt
+  - rbac
+  - multi-tenant
+maintainers:
+  - name: osama1998H
+    url: https://github.com/osama1998H

@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: uniauth
+  namespace: uniauth
+  labels:
+    app.kubernetes.io/name: uniauth
+    app.kubernetes.io/component: server
+spec:
+  # Ensure at least one pod remains available during node drains,
+  # cluster upgrades, or voluntary disruptions.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: uniauth
