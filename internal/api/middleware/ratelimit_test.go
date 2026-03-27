@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -100,13 +101,13 @@ func TestRateLimitUsesResolvedClientIP(t *testing.T) {
 		t.Parallel()
 
 		counter := newFakeRateLimitCounter()
-		handler := PopulateClientIP(NewClientIPResolver(nil))(RateLimit(counter, 10)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := PopulateClientIP(NewClientIPResolver(nil))(RateLimit(counter, 10, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		})))
 
 		requests := []*http.Request{
-			newRateLimitedRequest("203.0.113.99:4000", map[string]string{"X-Forwarded-For": "198.51.100.1"}),
-			newRateLimitedRequest("203.0.113.99:4000", map[string]string{"X-Forwarded-For": "198.51.100.2"}),
+			newRateLimitedRequest("/", "203.0.113.99:4000", map[string]string{"X-Forwarded-For": "198.51.100.1"}),
+			newRateLimitedRequest("/", "203.0.113.99:4000", map[string]string{"X-Forwarded-For": "198.51.100.2"}),
 		}
 
 		for _, req := range requests {
@@ -125,13 +126,13 @@ func TestRateLimitUsesResolvedClientIP(t *testing.T) {
 		t.Parallel()
 
 		counter := newFakeRateLimitCounter()
-		handler := PopulateClientIP(NewClientIPResolver(mustParseCIDRs(t, "10.0.0.0/8")))(RateLimit(counter, 10)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := PopulateClientIP(NewClientIPResolver(mustParseCIDRs(t, "10.0.0.0/8")))(RateLimit(counter, 10, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		})))
 
 		requests := []*http.Request{
-			newRateLimitedRequest("10.0.0.5:4000", map[string]string{"X-Forwarded-For": "198.51.100.10"}),
-			newRateLimitedRequest("10.0.0.5:4000", map[string]string{"X-Forwarded-For": "198.51.100.11"}),
+			newRateLimitedRequest("/", "10.0.0.5:4000", map[string]string{"X-Forwarded-For": "198.51.100.10"}),
+			newRateLimitedRequest("/", "10.0.0.5:4000", map[string]string{"X-Forwarded-For": "198.51.100.11"}),
 		}
 
 		for _, req := range requests {
@@ -151,7 +152,7 @@ func TestRateLimitAllowsTypedNilCounter(t *testing.T) {
 	t.Parallel()
 
 	var counter *fakeRateLimitCounter
-	handler := RateLimit(counter, 10)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := RateLimit(counter, 10, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
@@ -159,6 +160,65 @@ func TestRateLimitAllowsTypedNilCounter(t *testing.T) {
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", rec.Code)
+	}
+}
+
+func TestRateLimitReturnsServiceUnavailableForAuthRoutesOnRedisError(t *testing.T) {
+	t.Parallel()
+
+	handler := RateLimit(errorRateLimitCounter{}, 10, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	for _, path := range []string{"/api/v1/auth/login", "/api/v1/auth/password/reset-confirm"} {
+		t.Run(path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, newRateLimitedRequest(path, "203.0.113.20:4000", nil))
+
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("expected 503 for %s, got %d", path, rec.Code)
+			}
+		})
+	}
+}
+
+func TestRateLimitAllowsNonAuthRoutesOnRedisError(t *testing.T) {
+	t.Parallel()
+
+	handler := RateLimit(errorRateLimitCounter{}, 10, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	for _, path := range []string{"/health", "/swagger/index.html"} {
+		t.Run(path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, newRateLimitedRequest(path, "203.0.113.21:4000", nil))
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200 for %s, got %d", path, rec.Code)
+			}
+		})
+	}
+}
+
+func TestRateLimitReturnsTooManyRequestsWhenLimitExceeded(t *testing.T) {
+	t.Parallel()
+
+	counter := newFakeRateLimitCounter()
+	handler := RateLimit(counter, 1, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	first := httptest.NewRecorder()
+	handler.ServeHTTP(first, newRateLimitedRequest("/api/v1/auth/login", "203.0.113.25:4000", nil))
+	if first.Code != http.StatusOK {
+		t.Fatalf("expected first request to pass, got %d", first.Code)
+	}
+
+	second := httptest.NewRecorder()
+	handler.ServeHTTP(second, newRateLimitedRequest("/api/v1/auth/login", "203.0.113.25:4000", nil))
+	if second.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected second request to be rate limited, got %d", second.Code)
 	}
 }
 
@@ -177,8 +237,14 @@ func (f *fakeRateLimitCounter) IncrRateLimit(_ context.Context, key string, _ ti
 	return f.counts[key], nil
 }
 
-func newRateLimitedRequest(remoteAddr string, headers map[string]string) *http.Request {
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+type errorRateLimitCounter struct{}
+
+func (errorRateLimitCounter) IncrRateLimit(context.Context, string, time.Duration) (int64, error) {
+	return 0, errors.New("redis unavailable")
+}
+
+func newRateLimitedRequest(path, remoteAddr string, headers map[string]string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.RemoteAddr = remoteAddr
 	for key, value := range headers {
 		req.Header.Set(key, value)

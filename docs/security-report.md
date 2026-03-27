@@ -1,9 +1,9 @@
 **1. Executive Summary**
-This repo’s remaining main security problems are real and concentrated in operational hardening. The highest-risk remaining issue is now that Redis fail-open behavior can weaken revocation and throttling during outages, with weak JWT secret acceptance as the next tier of residual risk.
+This repo’s remaining main security problems are now concentrated in configuration and deployment hardening. The highest-risk remaining issue is weak JWT secret acceptance, followed by the remaining lower-severity readiness and supply-chain hardening gaps.
 
-Update (2026-03-28): findings 1, 2, 3, 4, 5, 6, and 7 have been fixed in the repo. The remaining findings below are still outstanding unless explicitly marked otherwise.
+Update (2026-03-28): findings 1, 2, 3, 4, 5, 6, 7, and 8 have been fixed in the repo. The remaining findings below are still outstanding unless explicitly marked otherwise.
 
-This report began as a read-only review of the codebase across auth/session logic, authorization/tenant boundaries, and config/deployment. Findings 1, 2, 3, 4, 5, 6, and 7 have since been remediated in the repo. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
+This report began as a read-only review of the codebase across auth/session logic, authorization/tenant boundaries, and config/deployment. Findings 1, 2, 3, 4, 5, 6, 7, and 8 have since been remediated in the repo. `go test ./...` passed locally; `govulncheck` was not installed, so dependency-CVE verification remains open.
 
 **2. Architecture and Attack Surface**
 - Entry points: public auth routes, `/health`, `/ready`, `/swagger/*`, and JWT-protected `/api/v1/*` in [router.go](/Users/osamamuhammed/uniauth/internal/api/router.go#L76).
@@ -48,6 +48,8 @@ This report began as a read-only review of the codebase across auth/session logi
    Remediation implemented: `chi`'s unconditional `RealIP` middleware has been removed, a shared trusted-proxy-aware client IP resolver now populates request context before logging and rate limiting, auth handlers consume that resolved value for audit/session metadata, and `TRUSTED_PROXY_CIDRS` now explicitly defines which proxy CIDRs or IPs may supply forwarded client-IP headers. Regression coverage was added in [ratelimit_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit_test.go#L1) and [config_test.go](/Users/osamamuhammed/uniauth/internal/config/config_test.go#L1).
 
 8. **Revocation and throttling fail open when Redis is unavailable** — Medium, High confidence. Affected: [auth middleware](/Users/osamamuhammed/uniauth/internal/api/middleware/auth.go#L44), [auth service](/Users/osamamuhammed/uniauth/internal/service/auth.go#L313), [ratelimit middleware](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit.go#L18). Evidence: blacklist lookup failures allow the request, blacklist writes are ignored, and rate limiting is skipped on Redis errors. Risk: during a Redis outage or partition, revoked access tokens remain usable until expiry and brute-force controls disappear. Preconditions: Redis outage/partition. Fix: decide explicitly which endpoints must fail closed, and at minimum fail closed for logout-sensitive auth decisions or degrade with alarms/feature flags. Verify with tests that simulate Redis failures. Category: session management / availability-hardening.
+   Status: Fixed.
+   Remediation implemented: Redis-backed auth controls now use a strict-auth fail-closed policy: `JWTAuth` returns `503` when blacklist lookups fail, `/api/v1/auth/*` requests return `503` when rate limiting cannot be enforced, and logout/password-change flows abort with `ErrServiceUnavailable` before mutating DB-backed auth state if the access-token blacklist write fails. Supporting docs were updated in [horizontal-scaling.md](/Users/osamamuhammed/uniauth/docs/horizontal-scaling.md#L1). Regression coverage was added in [auth_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/auth_test.go#L1), [ratelimit_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit_test.go#L1), [auth_redis_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_redis_test.go#L1), and [response_test.go](/Users/osamamuhammed/uniauth/internal/api/handlers/response_test.go#L1).
 
 9. **JWT secret strength is documented but not enforced** — Medium, Medium confidence. Affected: [main.go](/Users/osamamuhammed/uniauth/cmd/server/main.go#L115), [config.go](/Users/osamamuhammed/uniauth/internal/config/config.go#L53), [docker-compose](/Users/osamamuhammed/uniauth/docker-compose.yml#L12). Evidence: startup only checks `JWT_SECRET != ""`; docs say “minimum 32 characters,” but code does not enforce it. Risk: weak or placeholder HMAC secrets make token forgery practical in misconfigured self-hosted deployments. Preconditions: operator sets a weak/default secret. Fix: reject short or known-placeholder secrets at startup. Verify with config validation tests. OWASP: A02 Cryptographic Failures.
 
@@ -67,7 +69,7 @@ This report began as a read-only review of the codebase across auth/session logi
 - Completed hotfix 4: stop logging reset tokens and fail closed when reset-email delivery is unavailable. Complexity: Small. Regression risk: Low. Order: 4.
 - Completed hardening 1: add webhook URL validation and outbound SSRF guards. Complexity: Medium. Regression risk: Medium. Order: 5.
 - Completed hardening 2: replace naive forwarded-header trust with trusted-proxy-aware IP extraction and explicit proxy CIDR configuration. Complexity: Small-Medium. Regression risk: Medium. Order: 6.
-- Short-term hardening 3: enforce JWT secret quality, sanitize `/ready`, and define Redis degraded-mode behavior. Complexity: Small. Regression risk: Low-Medium. Order: 7.
+- Short-term hardening 3: enforce JWT secret quality and sanitize `/ready`. Complexity: Small. Regression risk: Low-Medium. Order: 7.
 - Completed structural improvement 1: introduce reusable authorization middleware/policy mapping instead of ad hoc handler checks. Complexity: High. Regression risk: Medium.
 - Completed structural improvement 2: add DB-level same-org enforcement for role assignments and auto-remove legacy cross-tenant links during migration. Complexity: Medium. Regression risk: Medium.
 - Structural improvement 3: pin CI actions/artifacts/images and add `govulncheck` to CI. Complexity: Small. Regression risk: Low.
@@ -84,6 +86,7 @@ This report began as a read-only review of the codebase across auth/session logi
 - Add startup/config tests that weak or placeholder `JWT_SECRET` values fail fast.
 - Implemented: password reset email tests now confirm reset tokens and links are never written to logs in [email_test.go](/Users/osamamuhammed/uniauth/internal/service/email_test.go#L1).
 - Implemented: auth reset-flow tests now confirm failed delivery deletes reset-token rows while successful delivery preserves a usable token in [auth_reset_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_reset_test.go#L1).
+- Implemented: Redis outage regression tests now confirm blacklist lookup failures return `503`, auth-route rate limiting fails closed with `503`, non-auth public routes remain available, and logout/password-change flows do not mutate DB-backed auth state when blacklist writes fail in [auth_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/auth_test.go#L1), [ratelimit_test.go](/Users/osamamuhammed/uniauth/internal/api/middleware/ratelimit_test.go#L1), and [auth_redis_test.go](/Users/osamamuhammed/uniauth/internal/service/auth_redis_test.go#L1).
 - Add `govulncheck ./...` to CI and pin supply-chain artifacts.
 
 **7. Open Questions / Assumptions**
@@ -91,4 +94,4 @@ This report began as a read-only review of the codebase across auth/session logi
 - I did not verify pod/network egress policy. Existing egress controls remain useful defense-in-depth on top of the new webhook validation and delivery guards.
 - I could not verify dependency-level vulns because `govulncheck` is not installed in this workspace.
 
-Quick note: 4 security issues remain open in the report: findings 8 and 9, plus the 2 lower-severity hardening items.
+Quick note: 3 security issues remain open in the report: finding 9 plus the 2 lower-severity hardening items.

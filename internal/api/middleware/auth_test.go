@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
+	"github.com/osama1998h/uniauth/internal/repository/cache"
 	"github.com/osama1998h/uniauth/pkg/token"
 )
 
@@ -47,6 +49,15 @@ func nextHandler(reached *bool) http.Handler {
 	})
 }
 
+type fakeTokenBlacklistChecker struct {
+	blacklisted bool
+	err         error
+}
+
+func (f *fakeTokenBlacklistChecker) IsTokenBlacklisted(context.Context, string) (bool, error) {
+	return f.blacklisted, f.err
+}
+
 func TestJWTAuth_ValidToken(t *testing.T) {
 	maker := newTestMaker()
 	userID := uuid.New()
@@ -58,7 +69,7 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	}
 
 	reached := false
-	handler := JWTAuth(maker, nil)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -74,6 +85,35 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	}
 }
 
+func TestJWTAuth_ValidToken_WithTypedNilBlacklistChecker(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.CreateAccessToken(userID, orgID)
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	var redisCache *cache.Cache
+
+	reached := false
+	handler := JWTAuth(maker, redisCache, nil)(nextHandler(&reached))
+
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if !reached {
+		t.Error("next handler was not called for valid token with typed-nil checker")
+	}
+}
+
 func TestJWTAuth_RejectsRefreshToken(t *testing.T) {
 	maker := newTestMaker()
 	userID := uuid.New()
@@ -85,7 +125,7 @@ func TestJWTAuth_RejectsRefreshToken(t *testing.T) {
 	}
 
 	reached := false
-	handler := JWTAuth(maker, nil)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -108,7 +148,7 @@ func TestJWTAuth_RejectsLegacyUntypedToken(t *testing.T) {
 	tokenStr := createLegacyUntypedToken(t, userID, orgID, 15*time.Minute)
 
 	reached := false
-	handler := JWTAuth(maker, nil)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -138,7 +178,7 @@ func TestJWTAuth_ValidToken_InjectsContext(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := JWTAuth(maker, nil)(captureHandler)
+	handler := JWTAuth(maker, nil, nil)(captureHandler)
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
 	w := httptest.NewRecorder()
@@ -155,7 +195,7 @@ func TestJWTAuth_ValidToken_InjectsContext(t *testing.T) {
 func TestJWTAuth_MissingAuthorizationHeader(t *testing.T) {
 	maker := newTestMaker()
 	reached := false
-	handler := JWTAuth(maker, nil)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
@@ -172,7 +212,7 @@ func TestJWTAuth_MissingAuthorizationHeader(t *testing.T) {
 func TestJWTAuth_MalformedBearer(t *testing.T) {
 	maker := newTestMaker()
 	reached := false
-	handler := JWTAuth(maker, nil)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	// Missing "Bearer " prefix
@@ -198,7 +238,7 @@ func TestJWTAuth_ExpiredToken(t *testing.T) {
 
 	reached := false
 	// Use the valid maker for the middleware (correct secret, but token is expired)
-	handler := JWTAuth(validMaker, nil)(nextHandler(&reached))
+	handler := JWTAuth(validMaker, nil, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -222,7 +262,7 @@ func TestJWTAuth_WrongSecret(t *testing.T) {
 	tokenStr, _, _ := signingMaker.CreateAccessToken(userID, orgID)
 
 	reached := false
-	handler := JWTAuth(verifyingMaker, nil)(nextHandler(&reached))
+	handler := JWTAuth(verifyingMaker, nil, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+tokenStr)
@@ -240,7 +280,7 @@ func TestJWTAuth_WrongSecret(t *testing.T) {
 func TestJWTAuth_InvalidTokenString(t *testing.T) {
 	maker := newTestMaker()
 	reached := false
-	handler := JWTAuth(maker, nil)(nextHandler(&reached))
+	handler := JWTAuth(maker, nil, nil)(nextHandler(&reached))
 
 	r := httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer not-a-real-jwt")
@@ -252,6 +292,60 @@ func TestJWTAuth_InvalidTokenString(t *testing.T) {
 	}
 	if reached {
 		t.Error("next handler should not be called for invalid token")
+	}
+}
+
+func TestJWTAuth_BlacklistedToken(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.CreateAccessToken(userID, orgID)
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	reached := false
+	handler := JWTAuth(maker, &fakeTokenBlacklistChecker{blacklisted: true}, nil)(nextHandler(&reached))
+
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+	if reached {
+		t.Fatal("next handler should not be called for blacklisted token")
+	}
+}
+
+func TestJWTAuth_BlacklistLookupFailure(t *testing.T) {
+	maker := newTestMaker()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	tokenStr, _, err := maker.CreateAccessToken(userID, orgID)
+	if err != nil {
+		t.Fatalf("create token: %v", err)
+	}
+
+	reached := false
+	handler := JWTAuth(maker, &fakeTokenBlacklistChecker{err: errors.New("redis unavailable")}, nil)(nextHandler(&reached))
+
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer "+tokenStr)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, r)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", w.Code)
+	}
+	if reached {
+		t.Fatal("next handler should not be called when blacklist lookup fails")
 	}
 }
 

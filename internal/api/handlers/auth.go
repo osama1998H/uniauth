@@ -27,6 +27,7 @@ func NewAuthHandler(authSvc *service.AuthService) *AuthHandler {
 // @Success     201 {object} RegisterResponse
 // @Failure     400 {object} SwaggerErrorResponse
 // @Failure     409 {object} SwaggerErrorResponse "Organization or email already exists"
+// @Failure     503 {object} SwaggerErrorResponse "Rate limiting temporarily unavailable"
 // @Failure     500 {object} SwaggerErrorResponse
 // @Router      /api/v1/auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +77,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} SwaggerErrorResponse
 // @Failure     401 {object} SwaggerErrorResponse "Invalid credentials"
 // @Failure     403 {object} SwaggerErrorResponse "User or organization inactive"
+// @Failure     503 {object} SwaggerErrorResponse "Rate limiting temporarily unavailable"
 // @Failure     500 {object} SwaggerErrorResponse
 // @Router      /api/v1/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +129,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} TokenPairResponse
 // @Failure     400 {object} SwaggerErrorResponse
 // @Failure     401 {object} SwaggerErrorResponse "Token invalid or expired"
+// @Failure     503 {object} SwaggerErrorResponse "Rate limiting temporarily unavailable"
 // @Failure     500 {object} SwaggerErrorResponse
 // @Router      /api/v1/auth/refresh [post]
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
@@ -165,6 +168,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} SwaggerMessageResponse
 // @Failure     400 {object} SwaggerErrorResponse
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     503 {object} SwaggerErrorResponse "Authentication temporarily unavailable"
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/auth/logout [post]
@@ -195,6 +199,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Success     200 {object} SwaggerMessageResponse
 // @Failure     401 {object} SwaggerErrorResponse
+// @Failure     503 {object} SwaggerErrorResponse "Authentication temporarily unavailable"
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/auth/logout-all [post]
@@ -225,6 +230,7 @@ func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 // @Param       body body ResetRequestBody true "Organization slug and email"
 // @Success     200 {object} SwaggerMessageResponse
 // @Failure     400 {object} SwaggerErrorResponse
+// @Failure     503 {object} SwaggerErrorResponse "Rate limiting temporarily unavailable"
 // @Router      /api/v1/auth/password/reset-request [post]
 func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -254,6 +260,7 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 // @Success     200 {object} SwaggerMessageResponse
 // @Failure     400 {object} SwaggerErrorResponse
 // @Failure     401 {object} SwaggerErrorResponse "Token invalid or expired"
+// @Failure     503 {object} SwaggerErrorResponse "Rate limiting temporarily unavailable"
 // @Failure     500 {object} SwaggerErrorResponse
 // @Router      /api/v1/auth/password/reset-confirm [post]
 func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
@@ -288,6 +295,7 @@ func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 // @Success     200 {object} SwaggerMessageResponse
 // @Failure     400 {object} SwaggerErrorResponse
 // @Failure     401 {object} SwaggerErrorResponse "Wrong current password"
+// @Failure     503 {object} SwaggerErrorResponse "Authentication temporarily unavailable"
 // @Failure     500 {object} SwaggerErrorResponse
 // @Security    BearerAuth
 // @Router      /api/v1/auth/password/change [put]

@@ -31,6 +31,11 @@ func TestHandleServiceError(t *testing.T) {
 			wantStatus: http.StatusConflict,
 		},
 		{
+			name:       "ErrServiceUnavailable → 503",
+			err:        domain.ErrServiceUnavailable,
+			wantStatus: http.StatusServiceUnavailable,
+		},
+		{
 			name:       "ErrInvalidCredentials → 401",
 			err:        domain.ErrInvalidCredentials,
 			wantStatus: http.StatusUnauthorized,

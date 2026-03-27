@@ -3,8 +3,10 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -13,7 +15,7 @@ type rateLimitCounter interface {
 }
 
 // RateLimit returns a middleware that limits requests per IP per minute.
-func RateLimit(redisCache rateLimitCounter, requestsPerMinute int) func(next http.Handler) http.Handler {
+func RateLimit(redisCache rateLimitCounter, requestsPerMinute int, logger *slog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ip := ClientIP(r)
@@ -26,7 +28,13 @@ func RateLimit(redisCache rateLimitCounter, requestsPerMinute int) func(next htt
 
 			count, err := redisCache.IncrRateLimit(r.Context(), key, time.Minute)
 			if err != nil {
-				// Redis unavailable — allow the request but log
+				if logger != nil {
+					logger.WarnContext(r.Context(), "rate limiting unavailable", "path", r.URL.Path, "client_ip", ip, "error", err)
+				}
+				if shouldFailClosedOnRateLimit(r.URL.Path) {
+					writeServiceUnavailable(w, "rate limiting temporarily unavailable")
+					return
+				}
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -42,6 +50,10 @@ func RateLimit(redisCache rateLimitCounter, requestsPerMinute int) func(next htt
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func shouldFailClosedOnRateLimit(path string) bool {
+	return strings.HasPrefix(path, "/api/v1/auth/")
 }
 
 func isNilRateLimitCounter(counter rateLimitCounter) bool {

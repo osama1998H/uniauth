@@ -64,7 +64,7 @@ func NewRouter(
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
-	r.Use(middleware.RateLimit(redisCache, cfg.Auth.RateLimitPerMinute))
+	r.Use(middleware.RateLimit(redisCache, cfg.Auth.RateLimitPerMinute, logger))
 
 	// Health
 	r.Get("/health", healthH.Live)
@@ -87,7 +87,7 @@ func NewRouter(
 
 			// Auth — requires JWT
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.JWTAuth(tokenMaker, redisCache))
+				r.Use(middleware.JWTAuth(tokenMaker, redisCache, logger))
 				r.Post("/logout", authH.Logout)
 				r.Post("/logout-all", authH.LogoutAll)
 				r.Put("/password/change", authH.ChangePassword)
@@ -96,7 +96,7 @@ func NewRouter(
 
 		// All routes below require JWT auth
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.JWTAuth(tokenMaker, redisCache))
+			r.Use(middleware.JWTAuth(tokenMaker, redisCache, logger))
 
 			// Users
 			r.Route("/users", func(r chi.Router) {
