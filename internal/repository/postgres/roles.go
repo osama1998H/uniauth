@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/osama1998h/uniauth/internal/domain"
 )
@@ -117,10 +118,15 @@ func (s *Store) ListPermissionsByRole(ctx context.Context, roleID uuid.UUID) ([]
 	return collectPermissions(rows)
 }
 
-func (s *Store) AssignRoleToUser(ctx context.Context, userID, roleID uuid.UUID) error {
+func (s *Store) AssignRoleToUser(ctx context.Context, orgID, userID, roleID uuid.UUID) error {
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, userID, roleID,
+		`INSERT INTO user_roles (org_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+		orgID, userID, roleID,
 	)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		return domain.ErrNotFound
+	}
 	return err
 }
 

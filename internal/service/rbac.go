@@ -85,7 +85,7 @@ func (s *RBACService) AssignRoleToUser(ctx context.Context, orgID, userID, roleI
 	if _, err := s.store.GetRoleByID(ctx, orgID, roleID); err != nil {
 		return fmt.Errorf("get role: %w", err)
 	}
-	if err := s.store.AssignRoleToUser(ctx, userID, roleID); err != nil {
+	if err := s.store.AssignRoleToUser(ctx, orgID, userID, roleID); err != nil {
 		return fmt.Errorf("assign role: %w", err)
 	}
 	s.auditSvc.Log(&domain.AuditLog{
