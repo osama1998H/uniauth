@@ -55,7 +55,9 @@ This means Redis is part of UniAuth's auth control plane. It should be highly av
 Every instance must use the **same** `JWT_SECRET`. Tokens are signed with HMAC-SHA256; a token signed by one instance must be verifiable by any other.
 
 ```
-JWT_SECRET=your-secret-minimum-32-characters-long
+# Generate once and reuse across every instance:
+# openssl rand -hex 32
+JWT_SECRET=<paste-generated-secret-here>
 ```
 
 Never rotate this secret without a coordinated rollout strategy — all existing tokens become invalid immediately.
@@ -111,6 +113,12 @@ The default Kubernetes rolling update strategy works correctly because:
 
 For local testing or simple deployments, you can run multiple app instances behind an Nginx or Traefik reverse proxy:
 
+Generate and export a shared secret once before starting the stack:
+
+```bash
+export JWT_SECRET="$(openssl rand -hex 32)"
+```
+
 ```yaml
 # docker-compose.scale.yml
 version: "3.8"
@@ -122,7 +130,7 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/uniauth?sslmode=disable
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: your-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       - postgres
       - redis
@@ -197,7 +205,7 @@ All instances must share these values:
 
 | Variable | Requirement |
 |----------|-------------|
-| `JWT_SECRET` | Identical on all instances; min 32 chars |
+| `JWT_SECRET` | Identical on all instances; random 32+ chars; do not use placeholders/defaults |
 | `DATABASE_URL` | Points to the same PostgreSQL instance/cluster |
 | `REDIS_URL` | Points to the same Redis instance/cluster |
 | `ACCESS_TOKEN_DURATION` | Should be consistent (default `15m`) |

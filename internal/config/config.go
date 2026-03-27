@@ -1,10 +1,12 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/viper"
 )
@@ -53,6 +55,22 @@ type EmailConfig struct {
 	From     string `mapstructure:"SMTP_FROM"`
 	BaseURL  string `mapstructure:"APP_BASE_URL"` // used in reset email links
 }
+
+const minJWTSecretLength = 32
+
+var (
+	errInvalidJWTSecret = errors.New("invalid JWT_SECRET: must be non-empty, at least 32 characters, and not use a known placeholder; generate one with: openssl rand -hex 32")
+
+	blockedJWTSecrets = map[string]struct{}{
+		"secret":                            {},
+		"jwtsecret":                         {},
+		"changeme":                          {},
+		"yoursecret":                        {},
+		"yoursecretminimum32characters":     {},
+		"yoursecretminimum32characterslong": {},
+		"changemeinproductionusealongrandomstring": {},
+	}
+)
 
 // Load reads configuration from environment variables (and optionally a .env file).
 func Load() (*Config, error) {
@@ -120,7 +138,41 @@ func Load() (*Config, error) {
 		BaseURL:  v.GetString("APP_BASE_URL"),
 	}
 
+	if err := validateJWTSecret(cfg.Auth.JWTSecret); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
+}
+
+func validateJWTSecret(secret string) error {
+	trimmed := strings.TrimSpace(secret)
+	if trimmed == "" {
+		return errInvalidJWTSecret
+	}
+
+	if len(trimmed) < minJWTSecretLength {
+		return errInvalidJWTSecret
+	}
+
+	if _, blocked := blockedJWTSecrets[normalizeJWTSecretCandidate(trimmed)]; blocked {
+		return errInvalidJWTSecret
+	}
+
+	return nil
+}
+
+func normalizeJWTSecretCandidate(secret string) string {
+	var normalized strings.Builder
+	normalized.Grow(len(secret))
+
+	for _, r := range strings.ToLower(secret) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			normalized.WriteRune(r)
+		}
+	}
+
+	return normalized.String()
 }
 
 func parseTrustedProxyCIDRs(raw string) ([]*net.IPNet, error) {
