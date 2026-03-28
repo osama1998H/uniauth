@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -41,7 +40,7 @@ func RequireEnv(t testing.TB, names ...string) {
 
 	for _, name := range names {
 		if os.Getenv(name) == "" {
-			t.Skip(fmt.Sprintf("%s is not set", name))
+			t.Skipf("%s is not set", name)
 		}
 	}
 }
