@@ -1,174 +1,148 @@
 # UniAuth
 
-<img width="1536" height="1024" alt="ChatGPT Image Mar 27, 2026, 08_00_27 PM" src="https://github.com/user-attachments/assets/33204822-ac87-40af-a13e-2757e45f3461" />
+[![CI](https://github.com/osama1998H/uniauth/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/osama1998H/uniauth/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+Self-hosted auth backend for SaaS apps, internal tools, and multi-tenant APIs.
 
-**UniAuth** is a self-hosted, production-grade authentication and authorization service built in Go. Use it as the auth backend for any of your applications — a lightweight alternative to Keycloak or Auth0.
+**UniAuth** is an API-first authentication and authorization service written in Go. It gives you organization-scoped JWT auth, RBAC, audit logs, webhook delivery, and API key lifecycle management in a single service backed by PostgreSQL and Redis.
 
-> **Status:** Active development · v0.1.0 coming soon
+> **Status:** Active development. UniAuth is strongest today as a self-hosted auth backend for your own APIs. OAuth/OIDC provider flows, MFA, social login, SDKs, and an admin UI are roadmap work.
 
-## Features
+## Why teams try it
 
-- **JWT authentication** — access tokens (15m) + refresh tokens (7d) with rotation
-- **Multi-tenancy** — organizations with isolated users, roles, and API keys
-- **Role-Based Access Control (RBAC)** — fine-grained permissions (`users:read`, `roles:write`, etc.)
-- **API keys** — server-to-server authentication with scopes
-- **Audit logs** — every auth event recorded with actor, IP, and metadata
-- **Webhooks** — receive HTTP callbacks on auth events (HMAC-signed)
-- **Password reset** — secure token flow via SMTP email
-- **Rate limiting** — per-IP via Redis sliding window
-- **Health endpoints** — `/health` + `/ready` for Kubernetes probes
-- **Single binary** — ships as a ~10MB Docker image, no runtime deps beyond Postgres and Redis
+- **Single Go service** backed by PostgreSQL and Redis
+- **Multi-tenant by default** with isolated organizations, users, roles, and API keys
+- **JWT sessions with rotation** for access and refresh tokens
+- **Operational visibility** with audit logs, health endpoints, and webhook events
+- **Deployable anywhere** with Docker, Helm, Kubernetes manifests, and generated Swagger/OpenAPI docs
 
-## Quick Start
+## Best fit
+
+Use UniAuth when:
+
+- you want a self-hosted auth service that runs next to your application stack
+- your backend already speaks REST/JSON and you want auth to stay API-first
+- you need organization isolation, RBAC, auditability, and webhook hooks without adopting a full IAM suite
+
+Consider alternatives when:
+
+- you need hosted auth with wide SDK coverage, social login, and enterprise SSO today
+- you need a full identity provider with OIDC/SAML federation or a polished admin console out of the box
+- you need protected HTTP routes to accept scoped API keys today; UniAuth currently supports API-key issuance, revocation, and validation primitives, while protected routes are JWT-first
+
+## Quick start
+
+### 1. Clone the repo
 
 ```bash
-# 1. Clone
-git clone https://github.com/osama1998h/uniauth.git && cd uniauth
-
-# 2. Configure
-cp .env.example .env
-# Edit .env — generate JWT_SECRET with: openssl rand -hex 32
-
-# 3. Start
-docker compose up
+git clone https://github.com/osama1998H/uniauth.git
+cd uniauth
 ```
 
-Server is running at `http://localhost:8080`. Docker Compose configures password reset email delivery through MailHog by default, and the MailHog UI is available at `http://localhost:8025`.
-
-## API
-
-### Authentication
-
-Protected routes accept `Authorization: Bearer <access-token>` only. Refresh tokens are reserved for `/api/v1/auth/refresh` and the logout request body.
+### 2. Configure the environment
 
 ```bash
-# Register a new organization + admin user
+cp .env.example .env
+openssl rand -hex 32
+```
+
+Set the generated value as `JWT_SECRET` in `.env`.
+
+### 3. Start the stack
+
+```bash
+docker compose up --build
+```
+
+UniAuth will:
+
+- start PostgreSQL, Redis, and MailHog
+- connect to the database
+- run pending migrations on startup
+- serve the API on `http://localhost:8080`
+
+### 4. Verify the service is up
+
+```bash
+curl http://localhost:8080/health
+```
+
+Swagger UI is available at [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html). MailHog is available at [http://localhost:8025](http://localhost:8025).
+
+## Try the core auth flow
+
+The example password below satisfies UniAuth's current password policy: minimum 8 characters, at least one uppercase letter, one digit, and one special character.
+
+```bash
+# Register a new organization + first admin user.
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"org_name":"Acme Corp","email":"admin@acme.com","password":"securepass123"}'
+  -d '{"org_name":"Acme Corp","email":"admin@acme.com","password":"StrongPass1!"}'
 
-# Login
+# Login with the same credentials.
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"org_slug":"acme-corp","email":"admin@acme.com","password":"securepass123"}'
-# => { "access_token": "...", "refresh_token": "..." }
-# Use only the access token in the Authorization header on protected routes.
+  -d '{"org_slug":"acme-corp","email":"admin@acme.com","password":"StrongPass1!"}'
 
-# Refresh tokens
-curl -X POST http://localhost:8080/api/v1/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token":"<your-refresh-token>"}'
-
-# Logout
-curl -X POST http://localhost:8080/api/v1/auth/logout \
-  -H "Authorization: Bearer <access-token>" \
-  -d '{"refresh_token":"<refresh-token>"}'
-```
-
-### Users
-
-```bash
-# Get own profile
+# Copy the access_token from the login response, then call a protected route.
 curl http://localhost:8080/api/v1/users/me \
   -H "Authorization: Bearer <access-token>"
-
-# Update profile
-curl -X PUT http://localhost:8080/api/v1/users/me \
-  -H "Authorization: Bearer <access-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"full_name":"Jane Doe"}'
 ```
 
-### RBAC
+## What you get today
 
-```bash
-# Create a role
-curl -X POST http://localhost:8080/api/v1/roles \
-  -H "Authorization: Bearer <access-token>" \
-  -d '{"name":"editor","description":"Can read and write content"}'
+- **JWT authentication** with short-lived access tokens and rotating refresh tokens
+- **Multi-tenancy** with organization-scoped users, roles, sessions, audit logs, webhooks, and API keys
+- **Role-based access control (RBAC)** with built-in permission names such as `users:read` and `roles:write`
+- **API key lifecycle management** to issue, scope, revoke, and audit keys
+- **Audit logs** for authentication and authorization events
+- **Webhooks** for auth events with HMAC signatures
+- **Password reset** via SMTP
+- **Rate limiting** backed by Redis
+- **Health and readiness endpoints** for orchestration
+- **Scratch-based Docker image** and a single Go server binary
 
-# Assign permissions to role
-curl -X POST http://localhost:8080/api/v1/roles/<role-id>/permissions \
-  -H "Authorization: Bearer <access-token>" \
-  -d '{"permissions":["users:read","roles:read"]}'
+## Docs and deployment
 
-# Assign role to user
-curl -X POST http://localhost:8080/api/v1/users/<user-id>/roles \
-  -H "Authorization: Bearer <access-token>" \
-  -d '{"role_id":"<role-id>"}'
-```
-
-### API Keys
-
-```bash
-# Create an API key (key shown only once)
-curl -X POST http://localhost:8080/api/v1/api-keys \
-  -H "Authorization: Bearer <access-token>" \
-  -d '{"name":"CI pipeline","scopes":["users:read"]}'
-# => { "key": "uk_abcdef...", ... }
-
-# Use an API key
-curl http://localhost:8080/api/v1/users/me \
-  -H "X-API-Key: uk_abcdef..."
-```
-
-### Webhooks
-
-```bash
-# Register a webhook
-curl -X POST http://localhost:8080/api/v1/webhooks \
-  -H "Authorization: Bearer <access-token>" \
-  -d '{"url":"https://myapp.com/hooks/auth","events":["user.login","user.registered"]}'
-# => { "secret": "whsec_...", ... }
-```
-
-Webhook payloads are HMAC-signed with `X-UniAuth-Signature: sha256=<hash>`.
+- [Swagger UI](http://localhost:8080/swagger/index.html)
+- [OpenAPI spec](docs/swagger.yaml)
+- [Horizontal scaling guide](docs/horizontal-scaling.md)
+- [Security report](docs/security-report.md)
+- [Helm chart](helm/uniauth)
+- [Kubernetes manifests](k8s)
+- [Contributing guide](CONTRIBUTING.md)
 
 ## Configuration
 
 All configuration is via environment variables (see `.env.example`):
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `PORT` | `8080` | HTTP listen port |
 | `ENVIRONMENT` | `development` | `development` or `production` |
-| `TRUSTED_PROXY_CIDRS` | — | Comma-separated proxy CIDRs or IPs allowed to supply forwarded client IP headers; empty means trust no proxies |
+| `TRUSTED_PROXY_CIDRS` | — | Comma-separated proxy CIDRs or IPs allowed to supply forwarded client IP headers |
 | `DATABASE_URL` | — | PostgreSQL connection string (required) |
 | `REDIS_URL` | `redis://localhost:6379/0` | Redis connection string |
-| `JWT_SECRET` | — | HMAC secret for JWTs (required, random 32+ chars, not a placeholder/default) |
+| `JWT_SECRET` | — | HMAC secret for JWTs (required, random 32+ chars) |
 | `ACCESS_TOKEN_DURATION` | `15m` | Access token lifetime |
 | `REFRESH_TOKEN_DURATION` | `168h` | Refresh token lifetime (7 days) |
 | `RESET_TOKEN_DURATION` | `1h` | Password reset token lifetime |
 | `RATE_LIMIT_PER_MINUTE` | `60` | Max requests per IP per minute |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins |
-| `SMTP_HOST` | — | SMTP server for password reset delivery; leave empty to disable delivery without exposing reset tokens |
+| `SMTP_HOST` | — | SMTP server for password reset delivery |
 | `SMTP_PORT` | `587` | SMTP port |
 | `SMTP_FROM` | — | From address for emails |
-| `APP_BASE_URL` | `http://localhost:8080` | Base URL for email links |
+| `APP_BASE_URL` | `http://localhost:8080` | Base URL used in password-reset emails; point it at your frontend or recovery UI when applicable |
 
 If UniAuth is deployed behind a reverse proxy or load balancer, set `TRUSTED_PROXY_CIDRS` to that proxy's CIDR or IP. If it is left empty, UniAuth ignores forwarded IP headers and uses the direct peer IP instead.
 
-## Deployment
+## API surface
 
-### Docker
-
-```bash
-export JWT_SECRET="$(openssl rand -hex 32)"
-
-docker run -d \
-  -e DATABASE_URL="postgres://..." \
-  -e REDIS_URL="redis://..." \
-  -e JWT_SECRET="$JWT_SECRET" \
-  -e TRUSTED_PROXY_CIDRS="10.0.0.0/8" \
-  -p 8080:8080 \
-  ghcr.io/osama1998h/uniauth:latest
-```
-
-## API Endpoints
+Protected routes currently require `Authorization: Bearer <access-token>`. Refresh tokens are reserved for `/api/v1/auth/refresh` and the logout request body.
 
 | Method | Path | Auth | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/health` | None | Liveness probe |
 | `GET` | `/ready` | None | Readiness probe |
 | `POST` | `/api/v1/auth/register` | None | Register org + admin user |
@@ -202,22 +176,23 @@ docker run -d \
 | `PUT` | `/api/v1/webhooks/{id}` | JWT | Update webhook |
 | `DELETE` | `/api/v1/webhooks/{id}` | JWT | Delete webhook |
 
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
 |---|---|
 | Language | Go 1.24.7 |
 | HTTP Router | [chi](https://github.com/go-chi/chi) |
-| Database | PostgreSQL 16 (pgx/v5) |
+| Database | PostgreSQL 16 (`pgx/v5`) |
 | Cache | Redis 7 |
 | Migrations | golang-migrate |
 | JWT | golang-jwt/jwt v5 |
 | Password hashing | bcrypt |
-| Logging | log/slog (stdlib) |
+| Logging | `log/slog` |
 | Config | Viper |
 
 ## Roadmap
 
+- [ ] Scoped API-key auth on protected routes
 - [ ] Email verification flow
 - [ ] Multi-Factor Authentication (TOTP)
 - [ ] OAuth2 provider (use UniAuth as your OAuth2 server)
