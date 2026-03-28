@@ -33,7 +33,7 @@ func NewRouter(
 	webhookSvc := service.NewWebhookService(store, logger)
 	emailSvc := service.NewEmailService(cfg.Email, logger, cfg.IsDevelopment())
 	authSvc := service.NewAuthService(store, tokenMaker, redisCache, auditSvc, webhookSvc, emailSvc, cfg.Auth)
-	userSvc := service.NewUserService(store, auditSvc)
+	userSvc := service.NewUserService(store, auditSvc, webhookSvc)
 	orgSvc := service.NewOrgService(store)
 	rbacSvc := service.NewRBACService(store, auditSvc)
 	apiKeySvc := service.NewAPIKeyService(store, auditSvc)
@@ -102,6 +102,7 @@ func NewRouter(
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/me", userH.GetMe)
 				r.Put("/me", userH.UpdateMe)
+				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionUsersWrite)).Post("/", userH.CreateUser)
 				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionUsersRead)).Get("/", userH.ListUsers)
 				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionUsersRead)).Get("/{id}", userH.GetUser)
 				r.With(middleware.RequirePermission(rbacSvc, domain.PermissionUsersDelete)).Delete("/{id}", userH.DeactivateUser)
