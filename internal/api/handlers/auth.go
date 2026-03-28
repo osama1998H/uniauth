@@ -335,6 +335,71 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "password changed successfully"})
 }
 
+// RequestEmailVerification godoc
+// @Summary     Request email verification
+// @Description Sends a verification email to the authenticated user. Returns 409 if the email is already verified.
+// @Tags        Auth
+// @Produce     json
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse "Account is inactive"
+// @Failure     409 {object} SwaggerErrorResponse "Email already verified"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/auth/email/verify-request [post]
+func (h *AuthHandler) RequestEmailVerification(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if err := h.authSvc.RequestEmailVerification(r.Context(), userID, orgID); err != nil {
+		handleServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "verification email sent"})
+}
+
+// ConfirmEmailVerification godoc
+// @Summary     Confirm email verification
+// @Description Validates the one-time verification token and marks the user's email as verified.
+// @Tags        Auth
+// @Accept      json
+// @Produce     json
+// @Param       body body VerifyEmailConfirmBody true "Verification token"
+// @Success     200 {object} SwaggerMessageResponse
+// @Failure     400 {object} SwaggerErrorResponse
+// @Failure     401 {object} SwaggerErrorResponse "Token invalid or expired"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Router      /api/v1/auth/email/verify-confirm [post]
+func (h *AuthHandler) ConfirmEmailVerification(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Token == "" {
+		writeError(w, http.StatusBadRequest, "token is required")
+		return
+	}
+
+	if err := h.authSvc.ConfirmEmailVerification(r.Context(), req.Token); err != nil {
+		handleServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "email verified successfully"})
+}
+
 func ptrStr(s string) *string {
 	if s == "" {
 		return nil

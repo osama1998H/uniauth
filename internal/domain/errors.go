@@ -17,5 +17,6 @@ var (
 	ErrAPIKeyRevoked      = errors.New("api key has been revoked")
 	ErrAPIKeyExpired      = errors.New("api key has expired")
 	ErrWeakPassword       = errors.New("password does not meet requirements")
-	ErrInvalidInput       = errors.New("invalid input")
+	ErrInvalidInput         = errors.New("invalid input")
+	ErrEmailAlreadyVerified = errors.New("email is already verified")
 )

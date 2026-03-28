@@ -84,6 +84,7 @@ func NewRouter(
 			r.Post("/refresh", authH.Refresh)
 			r.Post("/password/reset-request", authH.RequestPasswordReset)
 			r.Post("/password/reset-confirm", authH.ConfirmPasswordReset)
+			r.Post("/email/verify-confirm", authH.ConfirmEmailVerification)
 
 			// Auth — requires JWT
 			r.Group(func(r chi.Router) {
@@ -91,6 +92,7 @@ func NewRouter(
 				r.Post("/logout", authH.Logout)
 				r.Post("/logout-all", authH.LogoutAll)
 				r.Put("/password/change", authH.ChangePassword)
+				r.Post("/email/verify-request", authH.RequestEmailVerification)
 			})
 		})
 

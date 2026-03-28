@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 	"unicode"
 
@@ -107,6 +108,11 @@ func (s *AuthService) Register(ctx context.Context, in RegisterInput, ipAddress,
 		UserAgent: userAgent,
 	})
 	s.webhookSvc.Dispatch(org.ID, domain.AuditActionUserRegistered, map[string]any{"user_id": user.ID, "email": user.Email})
+
+	// Best-effort: send verification email, don't fail registration
+	if err := s.requestEmailVerificationInternal(ctx, user.ID, user.Email); err != nil {
+		slog.Warn("failed to send verification email on registration", "error", err, "user_id", user.ID)
+	}
 
 	return &RegisterOutput{Org: org, User: user}, nil
 }
@@ -348,6 +354,88 @@ func (s *AuthService) ChangePassword(ctx context.Context, orgID, userID uuid.UUI
 	_ = s.store.RevokeAllUserSessions(ctx, userID)
 
 	s.auditSvc.Log(&domain.AuditLog{OrgID: &user.OrgID, UserID: &userID, Action: domain.AuditActionPasswordChanged})
+	return nil
+}
+
+// RequestEmailVerification sends a verification email to the authenticated user.
+func (s *AuthService) RequestEmailVerification(ctx context.Context, userID, orgID uuid.UUID) error {
+	user, err := s.store.GetUserByID(ctx, orgID, userID)
+	if err != nil {
+		return domain.ErrNotFound
+	}
+	if !user.IsActive {
+		return domain.ErrUserInactive
+	}
+	if user.EmailVerifiedAt != nil {
+		return domain.ErrEmailAlreadyVerified
+	}
+
+	if err := s.requestEmailVerificationInternal(ctx, user.ID, user.Email); err != nil {
+		slog.Warn("failed to send verification email", "error", err, "user_id", userID)
+	}
+
+	s.auditSvc.Log(&domain.AuditLog{
+		OrgID:  &orgID,
+		UserID: &userID,
+		Action: domain.AuditActionEmailVerificationRequested,
+	})
+	s.webhookSvc.Dispatch(orgID, domain.AuditActionEmailVerificationRequested, map[string]any{"user_id": userID, "email": user.Email})
+
+	return nil
+}
+
+// ConfirmEmailVerification validates the token and marks the user's email as verified.
+func (s *AuthService) ConfirmEmailVerification(ctx context.Context, rawToken string) error {
+	tokenHash := hashString(rawToken)
+	evt, err := s.store.GetEmailVerificationToken(ctx, tokenHash)
+	if err != nil {
+		return fmt.Errorf("get email verification token: %w", err)
+	}
+	if evt == nil {
+		return domain.ErrTokenInvalid
+	}
+
+	user, err := s.store.GetUserByIDGlobal(ctx, evt.UserID)
+	if err != nil {
+		return fmt.Errorf("get user for email verification: %w", err)
+	}
+
+	if err := s.store.VerifyUserEmail(ctx, evt.UserID); err != nil {
+		return fmt.Errorf("verify user email: %w", err)
+	}
+	if err := s.store.MarkEmailVerificationTokenUsed(ctx, evt.ID); err != nil {
+		return fmt.Errorf("mark verification token used: %w", err)
+	}
+
+	s.auditSvc.Log(&domain.AuditLog{
+		OrgID:  &user.OrgID,
+		UserID: &user.ID,
+		Action: domain.AuditActionEmailVerified,
+	})
+	s.webhookSvc.Dispatch(user.OrgID, domain.AuditActionEmailVerified, map[string]any{"user_id": user.ID, "email": user.Email})
+
+	return nil
+}
+
+// requestEmailVerificationInternal generates a verification token, stores it, and sends the email.
+func (s *AuthService) requestEmailVerificationInternal(ctx context.Context, userID uuid.UUID, email string) error {
+	rawToken := uuid.New().String()
+	tokenHash := hashString(rawToken)
+	expiresAt := time.Now().Add(s.authCfg.VerifyEmailTokenDuration)
+
+	record, err := s.store.CreateEmailVerificationToken(ctx, userID, tokenHash, expiresAt)
+	if err != nil {
+		return fmt.Errorf("create email verification token: %w", err)
+	}
+
+	if err := s.emailSvc.SendEmailVerification(email, rawToken); err != nil {
+		if cleanupErr := s.store.DeleteEmailVerificationToken(ctx, record.ID); cleanupErr != nil {
+			slog.Error("email verification token cleanup failed after email delivery failure", "error", cleanupErr)
+			return fmt.Errorf("cleanup verification token after email failure: %w", cleanupErr)
+		}
+		return err
+	}
+
 	return nil
 }
 

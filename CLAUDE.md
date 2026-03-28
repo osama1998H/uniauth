@@ -146,6 +146,7 @@ All API routes live under `/api/v1/`. Public routes need no auth; protected rout
 | `users` | Auth subjects; email unique per org |
 | `sessions` | Refresh token hashes (never store raw tokens) |
 | `password_reset_tokens` | One-time reset tokens (hashed) |
+| `email_verification_tokens` | One-time email verification tokens (hashed) |
 | `roles` | RBAC roles per org |
 | `permissions` | System-level named permissions (seeded) |
 | `role_permissions` | Many-to-many role ↔ permission |
@@ -196,6 +197,7 @@ All configuration is loaded from `.env` (or environment variables) via Viper. Se
 | `JWT_SECRET` | — | Required; min 32 chars |
 | `ACCESS_TOKEN_DURATION` | `15m` | Short-lived access token TTL |
 | `REFRESH_TOKEN_DURATION` | `168h` | Refresh token TTL (7 days) |
+| `VERIFY_EMAIL_TOKEN_DURATION` | `24h` | Email verification token TTL |
 | `RATE_LIMIT_PER_MINUTE` | `60` | Requests per IP per minute |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins |
 | `SMTP_*` | — | Optional; prints emails to stdout if unset |

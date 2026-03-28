@@ -45,6 +45,8 @@ func handleServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, domain.ErrInvalidInput):
 		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, domain.ErrEmailAlreadyVerified):
+		writeError(w, http.StatusConflict, "email is already verified")
 	case errors.Is(err, domain.ErrAPIKeyRevoked):
 		writeError(w, http.StatusUnauthorized, "api key revoked")
 	case errors.Is(err, domain.ErrAPIKeyExpired):

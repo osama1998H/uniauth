@@ -35,5 +35,8 @@ UPDATE users SET last_login_at = now(), updated_at = now() WHERE id = $1;
 -- name: DeactivateUser :exec
 UPDATE users SET is_active = false, updated_at = now() WHERE id = $1;
 
+-- name: GetUserByIDGlobal :one
+SELECT * FROM users WHERE id = $1 LIMIT 1;
+
 -- name: VerifyUserEmail :exec
 UPDATE users SET email_verified_at = now(), updated_at = now() WHERE id = $1;

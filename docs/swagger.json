@@ -266,6 +266,107 @@
                 }
             }
         },
+        "/api/v1/auth/email/verify-confirm": {
+            "post": {
+                "description": "Validates the one-time verification token and marks the user's email as verified.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Confirm email verification",
+                "parameters": [
+                    {
+                        "description": "Verification token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.VerifyEmailConfirmBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerMessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token invalid or expired",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/email/verify-request": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sends a verification email to the authenticated user. Returns 409 if the email is already verified.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Request email verification",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerMessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Account is inactive",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Email already verified",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/login": {
             "post": {
                 "description": "Validates credentials and returns a JWT access token and a refresh token. Only the access token is accepted in the Authorization header.",
@@ -1251,6 +1352,73 @@
                         }
                     }
                 }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new user inside the caller's organization. The organization is derived from the JWT — no org_id is accepted in the request body. New users always default to non-superuser. Optionally assign initial roles at creation time. Requires the `users:write` permission.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Create a user in the organization",
+                "parameters": [
+                    {
+                        "description": "User creation payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.CreateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.UserView"
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error (weak password, empty email, invalid role ID)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Missing users:write permission",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Email already exists in organization",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api_handlers.SwaggerErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/v1/users/me": {
@@ -2080,6 +2248,32 @@
                 }
             }
         },
+        "internal_api_handlers.CreateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "employee@acme.com"
+                },
+                "full_name": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "S3cur3P@ss!"
+                },
+                "role_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "550e8400-e29b-41d4-a716-446655440002"
+                    ]
+                }
+            }
+        },
         "internal_api_handlers.CreateWebhookRequest": {
             "type": "object",
             "properties": {
@@ -2495,6 +2689,15 @@
                 "updated_at": {
                     "type": "string",
                     "example": "2026-03-01T12:00:00Z"
+                }
+            }
+        },
+        "internal_api_handlers.VerifyEmailConfirmBody": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440099"
                 }
             }
         },

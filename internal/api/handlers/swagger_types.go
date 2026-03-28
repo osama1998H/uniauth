@@ -131,6 +131,11 @@ type ResetConfirmBody struct {
 	Password string `json:"password" example:"N3wS3cur3P@ss!"`
 }
 
+// VerifyEmailConfirmBody is the request body for POST /api/v1/auth/email/verify-confirm.
+type VerifyEmailConfirmBody struct {
+	Token string `json:"token" example:"550e8400-e29b-41d4-a716-446655440099"`
+}
+
 // ChangePasswordBody is the request body for PUT /api/v1/auth/password/change.
 type ChangePasswordBody struct {
 	CurrentPassword string `json:"current_password" example:"OldP@ss!1"`
