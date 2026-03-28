@@ -98,6 +98,7 @@ curl http://localhost:8080/api/v1/users/me \
 - **API key lifecycle management** to issue, scope, revoke, and audit keys
 - **Audit logs** for authentication and authorization events
 - **Webhooks** for auth events with HMAC signatures
+- **Email verification** with one-time token links sent via SMTP
 - **Password reset** via SMTP
 - **Rate limiting** backed by Redis
 - **Health and readiness endpoints** for orchestration
@@ -128,6 +129,7 @@ All configuration is via environment variables (see `.env.example`):
 | `ACCESS_TOKEN_DURATION` | `15m` | Access token lifetime |
 | `REFRESH_TOKEN_DURATION` | `168h` | Refresh token lifetime (7 days) |
 | `RESET_TOKEN_DURATION` | `1h` | Password reset token lifetime |
+| `VERIFY_EMAIL_TOKEN_DURATION` | `24h` | Email verification token lifetime |
 | `RATE_LIMIT_PER_MINUTE` | `60` | Max requests per IP per minute |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins |
 | `SMTP_HOST` | — | SMTP server for password reset delivery |
@@ -153,6 +155,8 @@ Protected routes currently require `Authorization: Bearer <access-token>`. Refre
 | `POST` | `/api/v1/auth/password/reset-request` | None | Request password reset email |
 | `POST` | `/api/v1/auth/password/reset-confirm` | None | Confirm reset with token |
 | `PUT` | `/api/v1/auth/password/change` | JWT | Change password |
+| `POST` | `/api/v1/auth/email/verify-request` | JWT | Resend verification email |
+| `POST` | `/api/v1/auth/email/verify-confirm` | None | Confirm email with token |
 | `GET` | `/api/v1/users/me` | JWT | Get own profile |
 | `PUT` | `/api/v1/users/me` | JWT | Update own profile |
 | `GET` | `/api/v1/users` | JWT | List org users |
@@ -193,7 +197,7 @@ Protected routes currently require `Authorization: Bearer <access-token>`. Refre
 ## Roadmap
 
 - [ ] Scoped API-key auth on protected routes
-- [ ] Email verification flow
+- [x] Email verification flow
 - [ ] Multi-Factor Authentication (TOTP)
 - [ ] OAuth2 provider (use UniAuth as your OAuth2 server)
 - [ ] Social login (Google, GitHub)

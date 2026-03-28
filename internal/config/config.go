@@ -43,8 +43,9 @@ type AuthConfig struct {
 	JWTSecret            string        `mapstructure:"JWT_SECRET"`
 	AccessTokenDuration  time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`
 	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`
-	ResetTokenDuration   time.Duration `mapstructure:"RESET_TOKEN_DURATION"`
-	RateLimitPerMinute   int           `mapstructure:"RATE_LIMIT_PER_MINUTE"`
+	ResetTokenDuration       time.Duration `mapstructure:"RESET_TOKEN_DURATION"`
+	VerifyEmailTokenDuration time.Duration `mapstructure:"VERIFY_EMAIL_TOKEN_DURATION"`
+	RateLimitPerMinute       int           `mapstructure:"RATE_LIMIT_PER_MINUTE"`
 }
 
 type EmailConfig struct {
@@ -85,6 +86,7 @@ func Load() (*Config, error) {
 	v.SetDefault("ACCESS_TOKEN_DURATION", "15m")
 	v.SetDefault("REFRESH_TOKEN_DURATION", "168h") // 7 days
 	v.SetDefault("RESET_TOKEN_DURATION", "1h")
+	v.SetDefault("VERIFY_EMAIL_TOKEN_DURATION", "24h")
 	v.SetDefault("RATE_LIMIT_PER_MINUTE", 60)
 	v.SetDefault("SMTP_PORT", 587)
 	v.SetDefault("APP_BASE_URL", "http://localhost:8080")
@@ -126,8 +128,9 @@ func Load() (*Config, error) {
 		JWTSecret:            v.GetString("JWT_SECRET"),
 		AccessTokenDuration:  v.GetDuration("ACCESS_TOKEN_DURATION"),
 		RefreshTokenDuration: v.GetDuration("REFRESH_TOKEN_DURATION"),
-		ResetTokenDuration:   v.GetDuration("RESET_TOKEN_DURATION"),
-		RateLimitPerMinute:   v.GetInt("RATE_LIMIT_PER_MINUTE"),
+		ResetTokenDuration:       v.GetDuration("RESET_TOKEN_DURATION"),
+		VerifyEmailTokenDuration: v.GetDuration("VERIFY_EMAIL_TOKEN_DURATION"),
+		RateLimitPerMinute:       v.GetInt("RATE_LIMIT_PER_MINUTE"),
 	}
 	cfg.Email = EmailConfig{
 		Host:     v.GetString("SMTP_HOST"),

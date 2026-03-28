@@ -106,6 +106,25 @@ func (s *Store) DeactivateUser(ctx context.Context, orgID, id uuid.UUID) error {
 	return err
 }
 
+func (s *Store) GetUserByIDGlobal(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT id, org_id, email, hashed_password, full_name, is_active, is_superuser, email_verified_at, last_login_at, created_at, updated_at
+		 FROM users WHERE id = $1`, id,
+	)
+	u, err := scanUser(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrNotFound
+	}
+	return u, err
+}
+
+func (s *Store) VerifyUserEmail(ctx context.Context, id uuid.UUID) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE users SET email_verified_at = now(), updated_at = now() WHERE id = $1`, id,
+	)
+	return err
+}
+
 func scanUser(row pgx.Row) (*domain.User, error) {
 	u := &domain.User{}
 	var emailVerifiedAt sql.NullTime

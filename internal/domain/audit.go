@@ -22,7 +22,9 @@ const (
 	AuditActionAPIKeyRevoked     = "apikey.revoked"
 	AuditActionRoleCreated       = "role.created"
 	AuditActionRoleDeleted       = "role.deleted"
-	AuditActionRoleAssigned      = "role.assigned"
+	AuditActionRoleAssigned                 = "role.assigned"
+	AuditActionEmailVerificationRequested   = "user.email_verification_requested"
+	AuditActionEmailVerified                = "user.email_verified"
 )
 
 type AuditLog struct {
