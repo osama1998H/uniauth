@@ -242,11 +242,22 @@ func TestMaker_VerifyAccessToken_TamperedToken(t *testing.T) {
 	orgID := uuid.New()
 
 	tokenStr, _, _ := maker.CreateAccessToken(userID, orgID)
-	// Flip the last character to tamper with the signature
-	tampered := tokenStr[:len(tokenStr)-1] + "X"
-	if tampered[len(tampered)-1] == tokenStr[len(tokenStr)-1] {
-		tampered = tokenStr[:len(tokenStr)-1] + "Y"
+	parts := strings.Split(tokenStr, ".")
+	if len(parts) != 3 {
+		t.Fatalf("expected JWT with 3 segments, got %d", len(parts))
 	}
+
+	signature := parts[2]
+	if signature == "" {
+		t.Fatal("expected non-empty JWT signature")
+	}
+
+	// Mutate the first signature character so the decoded signature bytes always change.
+	tamperedSignature := "A" + signature[1:]
+	if tamperedSignature[0] == signature[0] {
+		tamperedSignature = "B" + signature[1:]
+	}
+	tampered := strings.Join([]string{parts[0], parts[1], tamperedSignature}, ".")
 
 	_, err := maker.VerifyAccessToken(tampered)
 	if err == nil {

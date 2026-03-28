@@ -74,7 +74,7 @@ docker-down:
 # ─── Dev setup ───────────────────────────────────────────────────────────────
 
 setup: ## Install development tools
-	go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	go install github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 	go install golang.org/x/tools/cmd/goimports@latest
 	go install github.com/swaggo/swag/cmd/swag@latest
 

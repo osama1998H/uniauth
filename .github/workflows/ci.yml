@@ -46,7 +46,7 @@ jobs:
 
       - name: Install migrate
         run: |
-          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.1/migrate.linux-amd64.tar.gz | tar xvz
           sudo mv migrate /usr/local/bin/
 
       - name: Run migrations
@@ -56,7 +56,7 @@ jobs:
         env:
           DATABASE_URL: postgres://uniauth:uniauth@localhost:5432/uniauth_test?sslmode=disable
           REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET: test-secret-key-for-ci
+          JWT_SECRET: test-secret-key-for-ci-32-charsx
         run: go test ./... -race -timeout 120s
 
   lint:
