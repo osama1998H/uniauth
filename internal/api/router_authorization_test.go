@@ -287,10 +287,10 @@ func TestRouterAllowsSuperuserBypass(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:   "create user",
-			method: http.MethodPost,
-			path:   func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/users" },
-			body:   `{"email":"superuser-create-` + uuid.NewString() + `@example.com","password":"S3cur3P@ss!"}`,
+			name:       "create user",
+			method:     http.MethodPost,
+			path:       func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/users" },
+			body:       `{"email":"superuser-create-` + uuid.NewString() + `@example.com","password":"S3cur3P@ss!"}`,
 			wantStatus: http.StatusCreated,
 		},
 		{
@@ -398,7 +398,7 @@ func createSuperuser(t *testing.T, ctx context.Context, store *db.Store, orgID u
 	return user
 }
 
-func grantPermissionToUser(t *testing.T, ctx context.Context, store *db.Store, orgID, userID uuid.UUID, permission string) {
+func grantPermissionToUser(t testing.TB, ctx context.Context, store *db.Store, orgID, userID uuid.UUID, permission string) {
 	t.Helper()
 
 	role := testutil.CreateRole(t, store, orgID, "router-permission-role")

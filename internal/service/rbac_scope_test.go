@@ -100,4 +100,11 @@ func TestRBACServiceAuthorize(t *testing.T) {
 			t.Fatalf("Authorize(superuser) error = %v", err)
 		}
 	})
+
+	t.Run("returns unauthorized for missing user", func(t *testing.T) {
+		err := svc.Authorize(ctx, org.ID, uuid.New(), domain.PermissionUsersRead)
+		if !errors.Is(err, domain.ErrUnauthorized) {
+			t.Fatalf("expected ErrUnauthorized, got %v", err)
+		}
+	})
 }

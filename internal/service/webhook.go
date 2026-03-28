@@ -33,6 +33,12 @@ type webhookResolver interface {
 
 type webhookDialContext func(ctx context.Context, network, address string) (net.Conn, error)
 
+type webhookDispatchJob struct {
+	orgID   uuid.UUID
+	event   string
+	payload any
+}
+
 // WebhookService dispatches webhook events to registered endpoints.
 type WebhookService struct {
 	store       *db.Store
@@ -40,6 +46,7 @@ type WebhookService struct {
 	resolver    webhookResolver
 	dialContext webhookDialContext
 	client      *http.Client
+	queue       *asyncDispatcher[webhookDispatchJob]
 }
 
 // NewWebhookService creates a WebhookService.
@@ -80,6 +87,28 @@ func newWebhookServiceWithNetworking(
 			return http.ErrUseLastResponse
 		},
 	}
+
+	svc.queue = newAsyncDispatcher("webhook_dispatch", logger, 256, 4, func(job webhookDispatchJob) {
+		if svc.store == nil {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		hooks, err := svc.store.ListActiveWebhooksForEvent(ctx, job.orgID, job.event)
+		if err != nil {
+			if svc.logger != nil {
+				svc.logger.Error("webhook: list hooks", "error", err)
+			}
+			return
+		}
+		for _, hook := range hooks {
+			if err := svc.deliver(ctx, hook.URL, hook.Secret, job.event, job.payload); err != nil && svc.logger != nil {
+				svc.logger.Warn("webhook: delivery skipped", "url", hook.URL, "error", err)
+			}
+		}
+	})
 
 	return svc
 }
@@ -148,21 +177,7 @@ func (w *WebhookService) Delete(ctx context.Context, id, orgID uuid.UUID) error 
 
 // Dispatch fires webhook events for a given org+event asynchronously.
 func (w *WebhookService) Dispatch(orgID uuid.UUID, event string, payload any) {
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		hooks, err := w.store.ListActiveWebhooksForEvent(ctx, orgID, event)
-		if err != nil {
-			w.logger.Error("webhook: list hooks", "error", err)
-			return
-		}
-		for _, hook := range hooks {
-			if err := w.deliver(ctx, hook.URL, hook.Secret, event, payload); err != nil {
-				w.logger.Warn("webhook: delivery skipped", "url", hook.URL, "error", err)
-			}
-		}
-	}()
+	w.queue.Enqueue(webhookDispatchJob{orgID: orgID, event: event, payload: payload})
 }
 
 func (w *WebhookService) deliver(ctx context.Context, targetURL, secret, event string, payload any) error {

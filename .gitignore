@@ -27,3 +27,7 @@ vendor/
 
 # Logs
 *.log
+
+# Local benchmark captures
+before.txt
+after.txt
