@@ -99,6 +99,75 @@ func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, userResponse(user))
 }
 
+// CreateUser godoc
+// @Summary     Create a user in the organization
+// @Description Creates a new user inside the caller's organization. The organization is derived from the JWT — no org_id is accepted in the request body. New users always default to non-superuser. Optionally assign initial roles at creation time. Requires the `users:write` permission.
+// @Tags        Users
+// @Accept      json
+// @Produce     json
+// @Param       body body CreateUserRequest true "User creation payload"
+// @Success     201 {object} UserView
+// @Failure     400 {object} SwaggerErrorResponse "Validation error (weak password, empty email, invalid role ID)"
+// @Failure     401 {object} SwaggerErrorResponse
+// @Failure     403 {object} SwaggerErrorResponse "Missing users:write permission"
+// @Failure     409 {object} SwaggerErrorResponse "Email already exists in organization"
+// @Failure     500 {object} SwaggerErrorResponse
+// @Security    BearerAuth
+// @Router      /api/v1/users [post]
+func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	orgID, ok := middleware.GetOrgID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req struct {
+		Email    string   `json:"email"`
+		Password string   `json:"password"`
+		FullName *string  `json:"full_name"`
+		RoleIDs  []string `json:"role_ids"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Email == "" || req.Password == "" {
+		writeError(w, http.StatusBadRequest, "email and password are required")
+		return
+	}
+
+	roleIDs := make([]uuid.UUID, 0, len(req.RoleIDs))
+	for _, idStr := range req.RoleIDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid role_id: "+idStr)
+			return
+		}
+		roleIDs = append(roleIDs, id)
+	}
+
+	ip := ptrStr(middleware.ClientIP(r))
+	ua := ptrStr(r.UserAgent())
+
+	user, err := h.userSvc.Create(r.Context(), orgID, actorID, service.CreateUserInput{
+		Email:    req.Email,
+		Password: req.Password,
+		FullName: req.FullName,
+		RoleIDs:  roleIDs,
+	}, ip, ua)
+	if err != nil {
+		handleServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, userResponse(user))
+}
+
 // ListUsers godoc
 // @Summary     List users in organization
 // @Description Returns a paginated list of all users in the authenticated user's organization. Requires the `users:read` permission.
