@@ -1,7 +1,9 @@
-.PHONY: all build run test lint fmt clean migrate generate help
+.PHONY: all build run test lint fmt clean migrate generate help bench-perf
 
 BINARY=uniauth
 CMD=./cmd/server
+BENCH_PERF_PATTERN='^(BenchmarkRouter_(Health|ListUsers_(Permitted|Superuser))|BenchmarkJWTAuth_BlacklistLookup|BenchmarkRateLimit_APIRequest)$$'
+BENCHCOUNT?=1
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 
@@ -24,6 +26,9 @@ test:
 
 test-short:
 	go test ./... -short -timeout 30s
+
+bench-perf:
+	go test ./internal/api ./internal/api/middleware -run '^$$' -bench $(BENCH_PERF_PATTERN) -benchmem -count $(BENCHCOUNT)
 
 # ─── Code Quality ────────────────────────────────────────────────────────────
 

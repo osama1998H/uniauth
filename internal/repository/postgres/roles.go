@@ -192,6 +192,37 @@ func (s *Store) UserHasPermission(ctx context.Context, orgID, userID uuid.UUID, 
 	return allowed, nil
 }
 
+func (s *Store) AuthorizeUser(ctx context.Context, orgID, userID uuid.UUID, permission string) (bool, bool, error) {
+	row := s.pool.QueryRow(ctx,
+		`WITH actor AS (
+			SELECT is_superuser
+			FROM users
+			WHERE org_id = $1 AND id = $2
+		)
+		SELECT
+			EXISTS (SELECT 1 FROM actor) AS user_exists,
+			CASE
+				WHEN COALESCE((SELECT is_superuser FROM actor LIMIT 1), false) THEN true
+				ELSE EXISTS (
+					SELECT 1
+					FROM user_roles ur
+					JOIN role_permissions rp ON rp.role_id = ur.role_id
+					JOIN permissions p ON p.id = rp.permission_id
+					WHERE ur.org_id = $1 AND ur.user_id = $2 AND p.name = $3
+				)
+			END AS authorized`,
+		orgID, userID, permission,
+	)
+
+	var userExists bool
+	var authorized bool
+	if err := row.Scan(&userExists, &authorized); err != nil {
+		return false, false, fmt.Errorf("authorize user: %w", err)
+	}
+
+	return userExists, authorized, nil
+}
+
 func (s *Store) GetPermissionByName(ctx context.Context, name string) (*domain.Permission, error) {
 	row := s.pool.QueryRow(ctx, `SELECT id, name, description FROM permissions WHERE name = $1`, name)
 	p := &domain.Permission{}

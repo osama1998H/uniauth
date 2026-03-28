@@ -277,3 +277,85 @@ func TestStoreUserHasPermissionHonorsOrgScope(t *testing.T) {
 		t.Fatal("expected missing permission to be denied")
 	}
 }
+
+func TestStoreAuthorizeUser(t *testing.T) {
+	store := testutil.RequireTestStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	org := testutil.CreateOrganization(t, store, "authorize-user-org")
+	user := testutil.CreateUser(t, store, org.ID, "authorize-user")
+	superuser, err := store.CreateUser(ctx, org.ID, "authorize-superuser@example.com", "hashed-password", nil, true)
+	if err != nil {
+		t.Fatalf("CreateUser(superuser) error = %v", err)
+	}
+
+	role := testutil.CreateRole(t, store, org.ID, "authorize-role")
+	perm, err := store.GetPermissionByName(ctx, domain.PermissionUsersRead)
+	if err != nil {
+		t.Fatalf("GetPermissionByName() error = %v", err)
+	}
+	if err := store.AssignPermissionToRole(ctx, role.ID, perm.ID); err != nil {
+		t.Fatalf("AssignPermissionToRole() error = %v", err)
+	}
+	if err := store.AssignRoleToUser(ctx, org.ID, user.ID, role.ID); err != nil {
+		t.Fatalf("AssignRoleToUser() error = %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		orgID          uuid.UUID
+		userID         uuid.UUID
+		permission     string
+		wantUserExists bool
+		wantAuthorized bool
+	}{
+		{
+			name:           "allows granted permission",
+			orgID:          org.ID,
+			userID:         user.ID,
+			permission:     domain.PermissionUsersRead,
+			wantUserExists: true,
+			wantAuthorized: true,
+		},
+		{
+			name:           "denies missing permission",
+			orgID:          org.ID,
+			userID:         user.ID,
+			permission:     domain.PermissionUsersDelete,
+			wantUserExists: true,
+			wantAuthorized: false,
+		},
+		{
+			name:           "allows superuser",
+			orgID:          org.ID,
+			userID:         superuser.ID,
+			permission:     domain.PermissionUsersDelete,
+			wantUserExists: true,
+			wantAuthorized: true,
+		},
+		{
+			name:           "missing user is unauthorized",
+			orgID:          org.ID,
+			userID:         uuid.New(),
+			permission:     domain.PermissionUsersRead,
+			wantUserExists: false,
+			wantAuthorized: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			userExists, authorized, err := store.AuthorizeUser(ctx, tc.orgID, tc.userID, tc.permission)
+			if err != nil {
+				t.Fatalf("AuthorizeUser() error = %v", err)
+			}
+			if userExists != tc.wantUserExists {
+				t.Fatalf("userExists = %v, want %v", userExists, tc.wantUserExists)
+			}
+			if authorized != tc.wantAuthorized {
+				t.Fatalf("authorized = %v, want %v", authorized, tc.wantAuthorized)
+			}
+		})
+	}
+}

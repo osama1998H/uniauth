@@ -14,20 +14,29 @@ import (
 type AuditService struct {
 	store  *db.Store
 	logger *slog.Logger
+	queue  *asyncDispatcher[*domain.AuditLog]
 }
 
 // NewAuditService creates an AuditService.
 func NewAuditService(store *db.Store, logger *slog.Logger) *AuditService {
-	return &AuditService{store: store, logger: logger}
+	svc := &AuditService{store: store, logger: logger}
+	svc.queue = newAsyncDispatcher("audit_logs", logger, 1024, 2, func(log *domain.AuditLog) {
+		if svc.store == nil {
+			return
+		}
+		if err := svc.store.CreateAuditLog(context.Background(), log); err != nil && svc.logger != nil {
+			svc.logger.Error("failed to write audit log", "error", err, "action", log.Action)
+		}
+	})
+	return svc
 }
 
-// Log writes an audit entry in a fire-and-forget goroutine so it never blocks the request.
+// Log writes an audit entry through a bounded background worker so it never blocks the request.
 func (a *AuditService) Log(log *domain.AuditLog) {
-	go func() {
-		if err := a.store.CreateAuditLog(context.Background(), log); err != nil {
-			a.logger.Error("failed to write audit log", "error", err, "action", log.Action)
-		}
-	}()
+	if log == nil {
+		return
+	}
+	a.queue.Enqueue(log)
 }
 
 // List returns paginated audit logs for an organization.

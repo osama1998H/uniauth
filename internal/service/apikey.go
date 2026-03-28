@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,13 +15,24 @@ import (
 
 // APIKeyService manages API keys.
 type APIKeyService struct {
-	store    *db.Store
-	auditSvc *AuditService
+	store         *db.Store
+	auditSvc      *AuditService
+	logger        *slog.Logger
+	lastUsedQueue *asyncDispatcher[uuid.UUID]
 }
 
 // NewAPIKeyService creates an APIKeyService.
-func NewAPIKeyService(store *db.Store, auditSvc *AuditService) *APIKeyService {
-	return &APIKeyService{store: store, auditSvc: auditSvc}
+func NewAPIKeyService(store *db.Store, auditSvc *AuditService, logger *slog.Logger) *APIKeyService {
+	svc := &APIKeyService{store: store, auditSvc: auditSvc, logger: logger}
+	svc.lastUsedQueue = newAsyncDispatcher("api_key_last_used", logger, 1024, 1, func(id uuid.UUID) {
+		if svc.store == nil {
+			return
+		}
+		if err := svc.store.UpdateAPIKeyLastUsed(context.Background(), id); err != nil && svc.logger != nil {
+			svc.logger.Error("failed to update api key last used timestamp", "error", err, "api_key_id", id)
+		}
+	})
+	return svc
 }
 
 // CreateAPIKeyInput holds parameters for creating an API key.
@@ -53,7 +65,7 @@ func (s *APIKeyService) Create(ctx context.Context, in CreateAPIKeyInput, actorI
 
 	s.auditSvc.Log(&domain.AuditLog{
 		OrgID: &in.OrgID, UserID: &actorID,
-		Action: domain.AuditActionAPIKeyCreated,
+		Action:       domain.AuditActionAPIKeyCreated,
 		ResourceType: strPtr("api_key"), ResourceID: strPtr(key.ID.String()),
 	})
 
@@ -72,7 +84,7 @@ func (s *APIKeyService) Revoke(ctx context.Context, keyID, orgID, actorID uuid.U
 	}
 	s.auditSvc.Log(&domain.AuditLog{
 		OrgID: &orgID, UserID: &actorID,
-		Action: domain.AuditActionAPIKeyRevoked,
+		Action:       domain.AuditActionAPIKeyRevoked,
 		ResourceType: strPtr("api_key"), ResourceID: strPtr(keyID.String()),
 	})
 	return nil
@@ -92,10 +104,7 @@ func (s *APIKeyService) ValidateAPIKey(ctx context.Context, plaintext string) (*
 		return nil, domain.ErrAPIKeyExpired
 	}
 
-	// Update last_used_at async
-	go func() {
-		_ = s.store.UpdateAPIKeyLastUsed(context.Background(), key.ID)
-	}()
+	s.lastUsedQueue.Enqueue(key.ID)
 
 	return key, nil
 }

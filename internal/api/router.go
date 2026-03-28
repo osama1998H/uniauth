@@ -36,7 +36,7 @@ func NewRouter(
 	userSvc := service.NewUserService(store, auditSvc, webhookSvc)
 	orgSvc := service.NewOrgService(store)
 	rbacSvc := service.NewRBACService(store, auditSvc)
-	apiKeySvc := service.NewAPIKeyService(store, auditSvc)
+	apiKeySvc := service.NewAPIKeyService(store, auditSvc, logger)
 
 	// --- Handlers ---
 	healthH := handlers.NewHealthHandler(store, redisCache)
@@ -64,7 +64,6 @@ func NewRouter(
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
-	r.Use(middleware.RateLimit(redisCache, cfg.Auth.RateLimitPerMinute, logger))
 
 	// Health
 	r.Get("/health", healthH.Live)
@@ -77,6 +76,8 @@ func NewRouter(
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(middleware.RateLimit(redisCache, cfg.Auth.RateLimitPerMinute, logger))
+
 		// Auth — public
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authH.Register)
