@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This document explains how to get s
 
 ### Prerequisites
 
-- Go 1.24+
+- Go 1.24.7+
 - Docker & Docker Compose
 - `make`
 
@@ -100,7 +100,7 @@ func TestListSessions(t *testing.T) { ... }
 ## Running Tests
 
 ```bash
-# Unit + integration tests (requires Docker for testcontainers)
+# Unit + integration tests
 make test
 
 # Short tests only (no DB)
