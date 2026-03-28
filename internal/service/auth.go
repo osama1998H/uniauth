@@ -70,7 +70,7 @@ type RegisterOutput struct {
 
 // Register creates a new organization and its first (superuser) user.
 func (s *AuthService) Register(ctx context.Context, in RegisterInput, ipAddress, userAgent *string) (*RegisterOutput, error) {
-	if err := validatePassword(in.Password); err != nil {
+	if err := ValidatePassword(in.Password); err != nil {
 		return nil, err
 	}
 
@@ -284,7 +284,7 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, orgSlug, email s
 
 // ConfirmPasswordReset validates the token and updates the password.
 func (s *AuthService) ConfirmPasswordReset(ctx context.Context, rawToken, newPassword string) error {
-	if err := validatePassword(newPassword); err != nil {
+	if err := ValidatePassword(newPassword); err != nil {
 		return err
 	}
 
@@ -318,7 +318,7 @@ func (s *AuthService) ConfirmPasswordReset(ctx context.Context, rawToken, newPas
 // ChangePassword updates a user's password after verifying the current one,
 // then blacklists the current access token so it is rejected on all instances.
 func (s *AuthService) ChangePassword(ctx context.Context, orgID, userID uuid.UUID, currentPassword, newPassword string, accessTokenID uuid.UUID, accessTokenExpiresAt time.Time) error {
-	if err := validatePassword(newPassword); err != nil {
+	if err := ValidatePassword(newPassword); err != nil {
 		return err
 	}
 
@@ -399,7 +399,7 @@ func hashString(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func validatePassword(p string) error {
+func ValidatePassword(p string) error {
 	if len(p) < 8 {
 		return fmt.Errorf("%w: minimum 8 characters", domain.ErrWeakPassword)
 	}

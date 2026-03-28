@@ -8,6 +8,7 @@ import (
 
 // Well-known audit action constants.
 const (
+	AuditActionUserCreated       = "user.created"
 	AuditActionUserRegistered    = "user.registered"
 	AuditActionUserLogin         = "user.login"
 	AuditActionUserLoginFailed   = "user.login_failed"

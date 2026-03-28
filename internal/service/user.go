@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/osama1998h/uniauth/internal/domain"
 	db "github.com/osama1998h/uniauth/internal/repository/postgres"
@@ -12,13 +15,73 @@ import (
 
 // UserService handles user management logic.
 type UserService struct {
-	store    *db.Store
-	auditSvc *AuditService
+	store      *db.Store
+	auditSvc   *AuditService
+	webhookSvc *WebhookService
 }
 
 // NewUserService creates a UserService.
-func NewUserService(store *db.Store, auditSvc *AuditService) *UserService {
-	return &UserService{store: store, auditSvc: auditSvc}
+func NewUserService(store *db.Store, auditSvc *AuditService, webhookSvc *WebhookService) *UserService {
+	return &UserService{store: store, auditSvc: auditSvc, webhookSvc: webhookSvc}
+}
+
+// CreateUserInput holds the data required to create a user in an organization.
+type CreateUserInput struct {
+	Email    string
+	Password string
+	FullName *string
+	RoleIDs  []uuid.UUID
+}
+
+// Create creates a new user inside the given organization.
+// The new user always defaults to non-superuser.
+func (s *UserService) Create(ctx context.Context, orgID, actorID uuid.UUID, in CreateUserInput, ipAddress, userAgent *string) (*domain.User, error) {
+	if in.Email == "" {
+		return nil, fmt.Errorf("%w: email is required", domain.ErrInvalidInput)
+	}
+
+	if err := ValidatePassword(in.Password); err != nil {
+		return nil, err
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	user, err := s.store.CreateUser(ctx, orgID, in.Email, string(hashed), in.FullName, false)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, fmt.Errorf("%w: email already exists in this organization", domain.ErrAlreadyExists)
+		}
+		return nil, fmt.Errorf("create user: %w", err)
+	}
+
+	for _, roleID := range in.RoleIDs {
+		if _, err := s.store.GetRoleByID(ctx, orgID, roleID); err != nil {
+			return nil, fmt.Errorf("%w: role %s not found in organization", domain.ErrInvalidInput, roleID)
+		}
+		if err := s.store.AssignRoleToUser(ctx, orgID, user.ID, roleID); err != nil {
+			return nil, fmt.Errorf("assign role %s: %w", roleID, err)
+		}
+	}
+
+	s.auditSvc.Log(&domain.AuditLog{
+		OrgID:        &orgID,
+		UserID:       &actorID,
+		Action:       domain.AuditActionUserCreated,
+		ResourceType: strPtr("user"),
+		ResourceID:   strPtr(user.ID.String()),
+		IPAddress:    ipAddress,
+		UserAgent:    userAgent,
+	})
+	s.webhookSvc.Dispatch(orgID, domain.AuditActionUserCreated, map[string]any{
+		"user_id": user.ID,
+		"email":   user.Email,
+	})
+
+	return user, nil
 }
 
 // GetByID returns a user by ID within the caller's organization.

@@ -179,8 +179,8 @@ Protected routes currently require `Authorization: Bearer <access-token>`. Refre
 ## Tech stack
 
 | Layer | Technology |
-| --- | --- |
-| Language | Go 1.24 |
+|---|---|
+| Language | Go 1.24.7 |
 | HTTP Router | [chi](https://github.com/go-chi/chi) |
 | Database | PostgreSQL 16 (`pgx/v5`) |
 | Cache | Redis 7 |

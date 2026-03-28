@@ -12,7 +12,7 @@ import (
 	"github.com/osama1998h/uniauth/pkg/token"
 )
 
-// validatePassword and slugify are package-private functions tested here
+// ValidatePassword and slugify are package-private functions tested here
 // because they encapsulate security-critical logic.
 
 func TestValidatePassword(t *testing.T) {
@@ -88,7 +88,7 @@ func TestValidatePassword(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validatePassword(tc.input)
+			err := ValidatePassword(tc.input)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error, got nil")

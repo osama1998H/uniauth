@@ -38,6 +38,7 @@ func TestRouterRequiresPermissionsOnPrivilegedRoutes(t *testing.T) {
 		path   string
 		body   string
 	}{
+		{name: "create user", method: http.MethodPost, path: "/api/v1/users", body: `{"email":"test@example.com","password":"S3cur3P@ss!"}`},
 		{name: "list users", method: http.MethodGet, path: "/api/v1/users"},
 		{name: "get user", method: http.MethodGet, path: "/api/v1/users/" + uuid.NewString()},
 		{name: "deactivate user", method: http.MethodDelete, path: "/api/v1/users/" + uuid.NewString()},
@@ -120,6 +121,16 @@ func TestRouterAllowsGrantedPermissions(t *testing.T) {
 			method:     http.MethodGet,
 			path:       func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/users" },
 			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "users write",
+			permission: domain.PermissionUsersWrite,
+			method:     http.MethodPost,
+			path: func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string {
+				return "/api/v1/users"
+			},
+			body:       `{"email":"create-` + uuid.NewString() + `@example.com","password":"S3cur3P@ss!"}`,
+			wantStatus: http.StatusCreated,
 		},
 		{
 			name:       "users delete",
@@ -263,15 +274,24 @@ func TestRouterAllowsSuperuserBypass(t *testing.T) {
 	handler := newTestRouter(store)
 
 	tests := []struct {
-		name   string
-		method string
-		path   func(t *testing.T, ctx context.Context, store *db.Store, orgID uuid.UUID) string
-		body   string
+		name       string
+		method     string
+		path       func(t *testing.T, ctx context.Context, store *db.Store, orgID uuid.UUID) string
+		body       string
+		wantStatus int
 	}{
 		{
-			name:   "users family",
-			method: http.MethodGet,
+			name:       "users family",
+			method:     http.MethodGet,
+			path:       func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/users" },
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:   "create user",
+			method: http.MethodPost,
 			path:   func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/users" },
+			body:   `{"email":"superuser-create-` + uuid.NewString() + `@example.com","password":"S3cur3P@ss!"}`,
+			wantStatus: http.StatusCreated,
 		},
 		{
 			name:   "organizations family",
@@ -279,26 +299,31 @@ func TestRouterAllowsSuperuserBypass(t *testing.T) {
 			path: func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string {
 				return "/api/v1/organizations/me"
 			},
+			wantStatus: http.StatusOK,
 		},
 		{
-			name:   "roles family",
-			method: http.MethodGet,
-			path:   func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/roles" },
+			name:       "roles family",
+			method:     http.MethodGet,
+			path:       func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/roles" },
+			wantStatus: http.StatusOK,
 		},
 		{
-			name:   "api keys family",
-			method: http.MethodGet,
-			path:   func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/api-keys" },
+			name:       "api keys family",
+			method:     http.MethodGet,
+			path:       func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/api-keys" },
+			wantStatus: http.StatusOK,
 		},
 		{
-			name:   "audit family",
-			method: http.MethodGet,
-			path:   func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/audit" },
+			name:       "audit family",
+			method:     http.MethodGet,
+			path:       func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/audit" },
+			wantStatus: http.StatusOK,
 		},
 		{
-			name:   "webhooks family",
-			method: http.MethodGet,
-			path:   func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/webhooks" },
+			name:       "webhooks family",
+			method:     http.MethodGet,
+			path:       func(_ *testing.T, _ context.Context, _ *db.Store, _ uuid.UUID) string { return "/api/v1/webhooks" },
+			wantStatus: http.StatusOK,
 		},
 	}
 
@@ -312,8 +337,8 @@ func TestRouterAllowsSuperuserBypass(t *testing.T) {
 
 			path := tc.path(t, ctx, store, org.ID)
 			rec := performAuthedRequest(handler, tc.method, path, tc.body, issueAccessToken(t, superuser.ID, org.ID))
-			if rec.Code != http.StatusOK {
-				t.Fatalf("%s %s status = %d, want %d, body=%s", tc.method, path, rec.Code, http.StatusOK, rec.Body.String())
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("%s %s status = %d, want %d, body=%s", tc.method, path, rec.Code, tc.wantStatus, rec.Body.String())
 			}
 		})
 	}

@@ -143,6 +143,14 @@ type UpdateMeRequest struct {
 	Email    *string `json:"email"     example:"jane@acme.com"`
 }
 
+// CreateUserRequest is the request body for POST /api/v1/users.
+type CreateUserRequest struct {
+	Email    string   `json:"email"     example:"employee@acme.com"`
+	Password string   `json:"password"  example:"S3cur3P@ss!"`
+	FullName *string  `json:"full_name" example:"John Doe"`
+	RoleIDs  []string `json:"role_ids"  example:"550e8400-e29b-41d4-a716-446655440002"`
+}
+
 // UpdateOrgRequest is the request body for PUT /api/v1/organizations/me.
 type UpdateOrgRequest struct {
 	Name string `json:"name" example:"Acme Corporation"`
